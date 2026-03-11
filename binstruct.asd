@@ -17,4 +17,12 @@
                              (:file "pointer")
                              (:file "sequence")
                              (:file "string"))
-                :depends-on ("package" "interface"))))
+                :depends-on ("package" "interface")))
+  :in-order-to ((test-op (test-op #:binstruct/test))))
+
+(defsystem binstruct/test
+  :depends-on (#:binstruct #:parachute)
+  :pathname "test/"
+  :components ((:file "package")
+               (:file "bmp" :depends-on ("package")))
+  :perform (test-op (op c) (symbol-call '#:parachute '#:test (find-symbol (symbol-name '#:suite) '#:binstruct.test))))
