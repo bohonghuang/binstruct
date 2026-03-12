@@ -22,20 +22,20 @@
   (defconstant +word-size+ (* (ceiling (log most-positive-fixnum 2) 8) 8))
   (defun unsigned-byte-parser (n endian)
     (with-gensyms (bytes)
-      `(for ((,bytes (list . ,(loop :repeat (floor n 8) :collect `(unsigned-byte-8)))))
-         (the (unsigned-byte ,n)
-              ,(if (<= n +word-size+)
-                   (with-gensyms (byte shift)
-                     (ecase endian
-                       (:big `(loop :for ,byte :of-type (unsigned-byte 8) :in ,bytes
-                                    :for ,shift :of-type non-negative-fixnum :downfrom ,(- n 8) :by 8
-                                    :sum (the (unsigned-byte ,n) (ash ,byte ,shift)) :of-type (unsigned-byte ,n)))
-                       (:little `(loop :for ,byte :of-type (unsigned-byte 8) :in ,bytes
-                                       :for ,shift :of-type non-negative-fixnum :from 0 :by 8
-                                       :sum (the (unsigned-byte ,n) (ash ,byte ,shift)) :of-type (unsigned-byte ,n)))))
-                   (ecase endian
-                     (:big `(bytes-unsigned-integer/be ,bytes))
-                     (:little `(bytes-unsigned-integer/le ,bytes)))))))))
+      (if (<= n +word-size+)
+          `(for ((,bytes (list . ,(loop :repeat (floor n 8) :collect `(unsigned-byte-8)))))
+             ,(with-gensyms (byte shift)
+                (ecase endian
+                  (:big `(loop :for ,byte :of-type (unsigned-byte 8) :in ,bytes
+                               :for ,shift :of-type non-negative-fixnum :downfrom ,(- n 8) :by 8
+                               :sum (the (unsigned-byte ,n) (ash ,byte ,shift)) :of-type (unsigned-byte ,n)))
+                  (:little `(loop :for ,byte :of-type (unsigned-byte 8) :in ,bytes
+                                  :for ,shift :of-type non-negative-fixnum :from 0 :by 8
+                                  :sum (the (unsigned-byte ,n) (ash ,byte ,shift)) :of-type (unsigned-byte ,n))))))
+          `(for ((,bytes (rep (unsigned-byte-8) ,(floor n 8) ,(floor n 8))))
+             ,(ecase endian
+                (:big `(bytes-unsigned-integer/be ,bytes))
+                (:little `(bytes-unsigned-integer/le ,bytes))))))))
 
 (declaim (inline unsigned-signed-integer))
 (defun unsigned-signed-integer (unsigned nbits)
