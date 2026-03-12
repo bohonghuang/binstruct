@@ -1,10 +1,10 @@
 (in-package #:binstruct.test)
 
 (defbinstruct bmp-file-header ()
-  (signature (coerce "BM" 'simple-base-string) :type (simple-base-string 2))
+  (nil (coerce "BM" 'simple-base-string) :type (simple-base-string 2))
   (file-size 0 :type (unsigned-byte 32))
-  (reserved1 0 :type (unsigned-byte 16))
-  (reserved2 0 :type (unsigned-byte 16))
+  (nil 0 :type (unsigned-byte 16))
+  (nil 0 :type (unsigned-byte 16))
   (data-offset 0 :type (unsigned-byte 32)))
 
 (defbinstruct bmp-info-header ()
@@ -51,10 +51,7 @@
        #x00 #x00 #x00)     ; Pixel data (1 pixel, 24 bits = 3 bytes, padded to 4)
       (make-bmp 
        :file-header (make-bmp-file-header 
-                     :signature (coerce "BM" 'simple-base-string)
                      :file-size 54
-                     :reserved1 0
-                     :reserved2 0
                      :data-offset 54)
        :info-header (make-bmp-info-header 
                      :header-size 40

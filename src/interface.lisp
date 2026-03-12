@@ -100,19 +100,22 @@
         (mappend #'identity options)
       (delete-from-plistf args :constructor :endian)
       (flet ((excluded-slot-p (slot)
-               (let ((type (getf slot :type)))
-                 (eq type 'position))))
+               (or (let ((type (getf slot :type)))
+                     (eq type 'position))
+                   (null (getf slot :slot (car slot))))))
         `(progn
            ,(unless typep
               `(defstruct (,name (:constructor ,constructor) . ,options)
                  . ,(loop :for slot :in slots
+                          :for (name initform . options) := slot
                           :unless (excluded-slot-p slot)
-                            :collect (nconc (remove-from-plist slot :type) (list :type (lisp-type (getf slot :type)))))))
+                            :collect (list* (getf slot :slot name) initform (nconc (remove-from-plist options :type) (list :type (lisp-type (getf options :type))))))))
            (defparser ,name ,lambda-list
              (let* ,(slots-parser-bindings slots)
                (constantly (the ,type (,constructor . ,(loop :for slot :in slots
+                                                             :for (name) := slot
                                                              :unless (excluded-slot-p slot)
-                                                               :nconc (list (make-keyword (first slot)) (first slot))))))))
+                                                               :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot))))))))
            ,(with-gensyms (type args)
               `(defmethod lisp-type-expr ((,type (eql ',name)) &rest ,args)
                  (declare (ignore ,args))
