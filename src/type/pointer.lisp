@@ -4,14 +4,18 @@
   (destructuring-bind () args
     'non-negative-fixnum))
 
+(defparser skip (n)
+  (let ((position (position)))
+    (declare (type non-negative-fixnum position))
+    (position (+ position n))))
+
 (defmethod expand-type-expr ((name (eql 'peek)) &rest args)
   (destructuring-bind (type &optional position) args
     (if position
-        (with-gensyms (current offset)
+        (with-gensyms (current)
           `(peek
-            (let* ((,current (position))
-                   (,offset (constantly (the non-negative-fixnum (- ,position ,current)))))
-              (rep (satisfies (constantly t)) ,offset ,offset)
+            (let ((,current (position)))
+              (skip (the non-negative-fixnum (- ,position ,current)))
               ,(expand-type-unit type))))
         `(peek ,(expand-type type)))))
 
