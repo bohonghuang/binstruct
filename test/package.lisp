@@ -131,3 +131,12 @@
                                                                          :initial-contents '(1 2 3 4 5 6))
                                                     :length 6))))
                                    (append list list)))))))
+
+(defbinstruct (included-struct (:include basic-struct)) ()
+  (e 0 :type (unsigned-byte 8))
+  (f 0 :type (signed-byte 16)))
+
+(define-test include :parent suite
+  (is-parse-equal (included-struct)
+    (#(#x01 #xFF #x02 #x01 #x00 #x00 #x00 #x80 #x7F #xFF #xFF)
+      (make-included-struct :a 1 :b -1 :c 258 :d -2147483648 :e 127 :f -1))))
