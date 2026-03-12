@@ -30,3 +30,9 @@
   (destructuring-bind (object &rest clauses) args
     (declare (ignore object))
     `(or . ,(mapcar (compose #'lisp-type #'second) clauses))))
+
+(defmethod expand-type-expr ((name (eql 'or)) &rest args)
+  `(or . ,(loop :for type :in args :collect (expand-type-unit type))))
+
+(defmethod lisp-type-expr ((name (eql 'or)) &rest args)
+  `(or . ,(loop :for type :in args :collect (lisp-type type))))
