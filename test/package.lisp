@@ -29,6 +29,14 @@
   (is-parse-equal (basic-struct)
     (#(#xFF #xFF #xFF #x00 #xFF #xFF #xFF #xFF) (make-basic-struct :a 255 :b -1 :c 255 :d -1))))
 
+(defbinstruct bigint-struct ()
+  (a 0 :type (unsigned-byte 128)))
+
+(define-test bigint :parent suite
+  (is-parse-equal (bigint-struct)
+    (#(#xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF)
+      (make-bigint-struct :a (1- (expt 2 128))))))
+
 (defbinstruct bitfield-struct ()
   (a 0 :type (boolean (unsigned-byte 1)))
   (b 0 :type (unsigned-byte 1))
