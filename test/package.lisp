@@ -140,3 +140,45 @@
   (is-parse-equal (included-struct)
     (#(#x01 #xFF #x02 #x01 #x00 #x00 #x00 #x80 #x7F #xFF #xFF)
       (make-included-struct :a 1 :b -1 :c 258 :d -2147483648 :e 127 :f -1))))
+
+(defbinstruct typed-struct (magic)
+  (nil magic :type (magic (unsigned-byte 8))))
+
+(defbinstruct (typed-struct-null (:include (typed-struct #x00))) ())
+
+(defbinstruct (typed-struct-boolean (:include (typed-struct #x01))) ()
+  (value 0 :type (boolean (unsigned-byte 8))))
+
+(defbinstruct (typed-struct-integer (:include (typed-struct #x02))) ()
+  (value 0 :type (signed-byte 32)))
+
+(defbinstruct (typed-struct-string (:include (typed-struct #x03))) ()
+  (value 0 :type (terminated-base-string #x00)))
+
+(defbinstruct or-struct ()
+  (length 0 :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'typed-struct) :type (simple-array
+                                                           (or (typed-struct-null)
+                                                               (typed-struct-boolean)
+                                                               (typed-struct-integer)
+                                                               (typed-struct-string))
+                                                           (length))))
+
+(define-test or :parent suite
+  (is-parse-equal (or-struct)
+    (#(4
+       #x00
+       #x01 #x01
+       #x02 #x78 #x56 #x34 #x12
+       #x03 #x74 #x65 #x73 #x74 #x00)
+      (make-or-struct
+       :length 4
+       :array (make-array
+               4
+               :element-type 'typed-struct
+               :initial-contents
+               (list
+                (make-typed-struct-null)
+                (make-typed-struct-boolean :value t)
+                (make-typed-struct-integer :value #x12345678)
+                (make-typed-struct-string :value (coerce "test" 'simple-base-string))))))))
