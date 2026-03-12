@@ -59,8 +59,8 @@
                          &aux
                            (*endian* endian))
         (mappend #'identity options)
-      (let ((pack (intern (format nil "~A-~A" name 'integer)))
-            (unpack (intern (format nil "~A-~A" 'integer name)))
+      (let ((pack (symbolicate name '#:- 'integer))
+            (unpack (symbolicate 'integer '#:- name))
             (fields (loop :for field :in fields
                           :for (name value) := (ensure-list field)
                           :for integer := (or value 0) :then (or value (1+ integer))
@@ -91,7 +91,7 @@
                            args
                          &key
                            (type name typep)
-                           (constructor (intern (format nil "~A-~A" '#:make name)))
+                           (constructor (symbolicate '#:make- name))
                            (endian :little)
                            (include nil)
                          &allow-other-keys
@@ -99,7 +99,7 @@
                            (*endian* endian)
                            (*offset* 0))
         (mappend #'identity options)
-      (delete-from-plistf args :constructor :endian)
+      (delete-from-plistf args :constructor :include :endian)
       (labels ((excluded-slot-p (slot)
                  (or (let ((type (getf slot :type)))
                        (eq type 'position))
@@ -110,23 +110,36 @@
                          :nconc (slots (get slot 'slots))
                        :when (consp slot)
                          :collect slot)))
-        `(progn
-           ,(unless typep
-              `(defstruct (,name (:constructor ,constructor) . ,options)
-                 . ,(loop :for slot :in slots
-                          :for (name initform . options) := slot
-                          :unless (excluded-slot-p slot)
-                            :collect (list* (getf slot :slot name) initform (nconc (remove-from-plist options :type) (list :type (lisp-type (getf options :type))))))))
-           ,(let ((slots (slots)))
-              `(defparser ,name ,lambda-list
-                 (let* ,(slots-parser-bindings slots)
-                   (constantly (the ,type (,constructor . ,(loop :for slot :in slots
-                                                                 :for (name) := slot
-                                                                 :unless (excluded-slot-p slot)
-                                                                   :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot)))))))))
-           ,(with-gensyms (type args)
-              `(eval-when (:compile-toplevel :load-toplevel :execute)
-                 (defmethod lisp-type-expr ((,type (eql ',name)) &rest ,args)
-                   (declare (ignore ,args))
-                   ,type)
-                 (setf (get ',name 'slots) ',(cons include slots)))))))))
+        (let ((include (ensure-list include))
+              (internal-name (symbolicate '#:% name))
+              (constructor-name constructor))
+          `(progn
+             (eval-when (:compile-toplevel :load-toplevel :execute)
+               ,(unless typep
+                  `(defstruct (,name
+                               (:constructor ,constructor)
+                               ,@(when include `((:include ,(car include))))
+                               ,@(loop :for (key value) :on args :by #'cddr
+                                       :collect (list key value)))
+                     . ,(loop :for slot :in slots
+                              :for (name initform . options) := slot
+                              :unless (excluded-slot-p slot)
+                                :collect (list* (getf slot :slot name) initform (nconc (remove-from-plist options :type) (list :type (lisp-type (getf options :type))))))))
+               ,(with-gensyms (type args)
+                  `(defmethod lisp-type-expr ((,type (eql ',name)) &rest ,args)
+                     (declare (ignore ,args))
+                     ,type)))
+             ,(with-gensyms (constructor)
+                `(progn
+                   (defparser ,internal-name (,constructor . ,lambda-list)
+                     (let ((,constructor ,(if include `(,(symbolicate '#:% (car include)) ,constructor . ,(cdr include)) `(constantly ,constructor))))
+                       (declare (type function ,constructor))
+                       (let* ,(slots-parser-bindings slots)
+                         (constantly (curry ,constructor . ,(loop :for slot :in slots
+                                                                  :for (name) := slot
+                                                                  :unless (excluded-slot-p slot)
+                                                                    :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot))))))))
+                   (defparser ,name ,lambda-list
+                     (for ((,constructor (,internal-name #',constructor-name . ,(parsonic::lambda-list-arguments lambda-list))))
+                       (declare (type function ,constructor))
+                       (the ,type (funcall ,constructor))))))))))))
