@@ -9,9 +9,9 @@
                             (second (car *slots*)))))
       args
     (with-gensyms (actual-value)
-      `(for ((,actual-value ,(expand-type actual-type)))
-         (assert (equalp ,actual-value ,value))
-         ,actual-value))))
+      `(let ((,actual-value ,(expand-type actual-type)))
+         (rep (or) (if (equalp ,actual-value ,value) 0 1))
+         (constantly ,actual-value)))))
 
 (defmethod lisp-type-expr ((name (eql 'magic)) &rest args)
   (destructuring-bind (actual-type &optional value) args
