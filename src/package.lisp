@@ -1,10 +1,11 @@
 (defpackage binstruct
   (:use #:cl #:alexandria #:parsonic)
   (:export
+   #:defbinenum
+   #:defbinstruct
    #:magic
    #:pointer
    #:terminated-base-string
-   #:defbinenum
-   #:defbinstruct))
+   #:custom))
 
 (in-package #:binstruct)

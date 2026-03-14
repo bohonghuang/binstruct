@@ -16,7 +16,8 @@
                              (:file "integer")
                              (:file "pointer")
                              (:file "sequence")
-                             (:file "string"))
+                             (:file "string")
+                             (:file "custom"))
                 :depends-on ("package" "interface")))
   :in-order-to ((test-op (test-op #:binstruct/test))))
 
