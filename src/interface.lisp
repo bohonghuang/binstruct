@@ -119,10 +119,10 @@
                               :for (name initform . options) := slot
                               :unless (excluded-slot-p slot)
                                 :collect (list* (getf slot :slot name) initform (nconc (remove-from-plist options :type) (list :type (lisp-type (getf options :type))))))))
-               ,(with-gensyms (type args)
-                  `(defmethod lisp-type-expr ((,type (eql ',name)) &rest ,args)
-                     (declare (ignore ,args))
-                     ,type)))
+               ,(with-gensyms (var args)
+                  `(defmethod lisp-type-expr ((,var (eql ',name)) &rest ,args)
+                     (declare (ignore ,var ,args))
+                     ',type)))
              ,(with-gensyms (constructor)
                 `(progn
                    (defparser ,internal-name (,constructor . ,lambda-list)
