@@ -85,6 +85,9 @@
                  `(for ((,',value ,(let ((*endian* ,endian)) (expand-type ',type))))
                     (,',unpack ,',value))))))))))
 
+(defparser apply-constructor (constructor)
+  (parser-call constructor))
+
 (defmacro defbinstruct (name-and-options lambda-list &rest slots)
   (destructuring-bind (name &rest options) (ensure-list name-and-options)
     (destructuring-bind (&rest
@@ -103,15 +106,23 @@
       (labels ((excluded-slot-p (slot)
                  (or (let ((type (getf slot :type)))
                        (eq type 'position))
-                     (null (getf slot :slot (car slot))))))
+                     (null (getf slot :slot (car slot)))))
+               (slots (&optional (slots (cons (car (ensure-list include)) slots)))
+                 (loop :for slot :in slots
+                       :when (symbolp slot)
+                         :nconc (slots (get slot 'slots))
+                       :when (consp slot)
+                         :collect slot)))
         (let ((include (ensure-list include))
-              (internal-name (symbolicate '#:% name))
-              (constructor-name constructor))
+              (parser (symbolicate name '#:-parser))
+              (constructor (symbolicate name '#:-constructor))
+              (inherit (symbolicate name '#:-inherit))
+              (defstruct-constructor constructor))
           `(progn
              (eval-when (:compile-toplevel :load-toplevel :execute)
                ,(unless typep
                   `(defstruct (,name
-                               (:constructor ,constructor)
+                               (:constructor ,defstruct-constructor)
                                ,@(when include `((:include ,(car include))))
                                ,@(loop :for (key value) :on args :by #'cddr
                                        :collect (list key value)))
@@ -122,18 +133,30 @@
                ,(with-gensyms (var args)
                   `(defmethod lisp-type-expr ((,var (eql ',name)) &rest ,args)
                      (declare (ignore ,var ,args))
-                     ',type)))
-             ,(with-gensyms (constructor)
+                     ',type))
+               (setf (get ',name 'slots) ',(cons (car include) slots)))
+             ,(with-gensyms (next parent)
                 `(progn
-                   (defparser ,internal-name (,constructor . ,lambda-list)
-                     (let ((,constructor ,(if include `(,(symbolicate '#:% (car include)) ,constructor . ,(cdr include)) `(constantly ,constructor))))
-                       (declare (type function ,constructor))
-                       (let* ,(slots-parser-bindings slots)
-                         (constantly (curry ,constructor . ,(loop :for slot :in slots
-                                                                  :for (name) := slot
-                                                                  :unless (excluded-slot-p slot)
-                                                                    :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot))))))))
+                   ,(let ((slots (slots)))
+                      `(defparser ,constructor ,(mapcar #'car (remove-if #'excluded-slot-p slots))
+                         (constantly
+                          (,defstruct-constructor
+                           . ,(loop :for slot :in slots
+                                    :for (name) := slot
+                                    :unless (excluded-slot-p slot)
+                                      :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot)))))))
+                   (defparser ,parser (,next ,parent . ,lambda-list)
+                     (let* ,(slots-parser-bindings slots)
+                       (parser-call ,next ,(if-let ((args (mapcar #'car (remove-if #'excluded-slot-p slots))))
+                                             `(alexandria:curry ,parent . ,args)
+                                             parent))))
+                   (defparser ,inherit (,next ,parent . ,lambda-list)
+                     ,(if include
+                          `(,(symbolicate (car include) '#:-inherit)
+                            ,(if-let ((args (parsonic::lambda-list-arguments lambda-list)))
+                               `(rcurry (curry #',parser ,next) . ,args)
+                               `(curry #',parser ,next))
+                            ,parent . ,(cdr include))
+                          `(,parser ,next ,parent . ,(parsonic::lambda-list-arguments lambda-list))))
                    (defparser ,name ,lambda-list
-                     (for ((,constructor (,internal-name #',constructor-name . ,(parsonic::lambda-list-arguments lambda-list))))
-                       (declare (type function ,constructor))
-                       (the ,type (funcall ,constructor))))))))))))
+                     (,inherit #'apply-constructor #',constructor . ,(parsonic::lambda-list-arguments lambda-list)))))))))))

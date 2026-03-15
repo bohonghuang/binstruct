@@ -132,14 +132,22 @@
                                                     :length 6))))
                                    (append list list)))))))
 
-(defbinstruct (included-struct (:include basic-struct)) ()
-  (e 0 :type (unsigned-byte 8))
+(defbinstruct (included-struct (:include basic-struct)) (n)
+  (e (make-array 0 :element-type '(unsigned-byte 8)) :type (simple-array (unsigned-byte 8) (n)))
   (f 0 :type (signed-byte 16)))
 
+(defbinstruct (included-included-struct (:include (included-struct (1- n)))) (n)
+  (g 0 :type (unsigned-byte 16))
+  (h (make-array 0 :element-type '(signed-byte 8)) :type (simple-array (signed-byte 8) (n))))
+
 (define-test include :parent suite
-  (is-parse-equal (included-struct)
+  (is-parse-equal (included-struct 1)
     (#(#x01 #xFF #x02 #x01 #x00 #x00 #x00 #x80 #x7F #xFF #xFF)
-      (make-included-struct :a 1 :b -1 :c 258 :d -2147483648 :e 127 :f -1))))
+      (make-included-struct :a 1 :b -1 :c 258 :d -2147483648 :e (coerce #(127) '(simple-array (unsigned-byte 8) (*))) :f -1)))
+  (is-parse-equal (included-included-struct 2)
+    (#(#x01 #xFF #x02 #x01 #x00 #x00 #x00 #x80 #x7F #xFF #xFF #x34 #x12 #x80 #x7F #x7F)
+      (make-included-included-struct :a 1 :b -1 :c 258 :d -2147483648 :e (coerce #(127) '(simple-array (unsigned-byte 8) (*)))
+                                     :f -1 :g #x1234 :h (coerce #(-128 127) '(simple-array (signed-byte 8) (*)))))))
 
 (defbinstruct typed-struct (magic)
   (nil magic :type (magic (unsigned-byte 8))))
