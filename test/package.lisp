@@ -138,7 +138,7 @@
 
 (defbinstruct (included-included-struct (:include (included-struct (1- n)))) (n)
   (g 0 :type (unsigned-byte 16))
-  (h (make-array 0 :element-type '(signed-byte 8)) :type (simple-array (signed-byte 8) (n))))
+  (h (make-array 0 :element-type '(signed-byte 8)) :type (simple-array (signed-byte 8) ((+ n (- 2 a) b)))))
 
 (define-test include :parent suite
   (is-parse-equal (included-struct 1)
