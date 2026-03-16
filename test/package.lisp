@@ -132,22 +132,33 @@
                                                     :length 6))))
                                    (append list list)))))))
 
-(defbinstruct (included-struct (:include basic-struct)) (n)
+(defbinstruct (derived-struct (:include basic-struct)) (&optional (n 1))
   (e (make-array 0 :element-type '(unsigned-byte 8)) :type (simple-array (unsigned-byte 8) (n)))
   (f 0 :type (signed-byte 16)))
 
-(defbinstruct (included-included-struct (:include (included-struct (1- n)))) (n)
+(defbinstruct (derived-derived-struct (:include (derived-struct (1- n)))) (n)
   (g 0 :type (unsigned-byte 16))
   (h (make-array 0 :element-type '(signed-byte 8)) :type (simple-array (signed-byte 8) ((+ n (- 2 a) b)))))
 
-(define-test include :parent suite
-  (is-parse-equal (included-struct 1)
+(define-test derived-struct :parent suite
+  (is-parse-equal (derived-struct)
     (#(#x01 #xFF #x02 #x01 #x00 #x00 #x00 #x80 #x7F #xFF #xFF)
-      (make-included-struct :a 1 :b -1 :c 258 :d -2147483648 :e (coerce #(127) '(simple-array (unsigned-byte 8) (*))) :f -1)))
-  (is-parse-equal (included-included-struct 2)
+      (make-derived-struct :a 1 :b -1 :c 258 :d -2147483648 :e (coerce #(127) '(simple-array (unsigned-byte 8) (*))) :f -1)))
+  (is-parse-equal (derived-derived-struct 2)
     (#(#x01 #xFF #x02 #x01 #x00 #x00 #x00 #x80 #x7F #xFF #xFF #x34 #x12 #x80 #x7F #x7F)
-      (make-included-included-struct :a 1 :b -1 :c 258 :d -2147483648 :e (coerce #(127) '(simple-array (unsigned-byte 8) (*)))
+      (make-derived-derived-struct :a 1 :b -1 :c 258 :d -2147483648 :e (coerce #(127) '(simple-array (unsigned-byte 8) (*)))
                                      :f -1 :g #x1234 :h (coerce #(-128 127) '(simple-array (signed-byte 8) (*)))))))
+
+(defbinstruct empty-struct ())
+
+(defbinstruct (derived-empty-struct (:include empty-struct)) ())
+
+(define-test empty-struct :parent suite
+  (locally (declare #+sbcl (sb-ext:muffle-conditions style-warning))
+    (is-parse-equal (empty-struct)
+      (#() (make-empty-struct)))
+    (is-parse-equal (derived-empty-struct)
+      (#() (make-derived-empty-struct)))))
 
 (defbinstruct typed-struct (magic)
   (nil magic :type (magic (unsigned-byte 8))))
@@ -172,7 +183,7 @@
                                                                (typed-struct-string))
                                                            (length))))
 
-(define-test or :parent suite
+(define-test or-struct :parent suite
   (is-parse-equal (or-struct)
     (#(4
        #x00
