@@ -51,7 +51,7 @@
          (constantly ,slot)))))
 
 (defmacro defbinenum (name-and-options lambda-list &body fields)
-  (destructuring-bind (name &rest options) (ensure-list name-and-options)
+  (destructuring-bind (name &rest options &aux (*package* (symbol-package name))) (ensure-list name-and-options)
     (destructuring-bind (&key
                            (type '(unsigned-byte 32))
                            (endian :little)
@@ -86,7 +86,7 @@
                     (,',unpack ,',value))))))))))
 
 (defmacro defbinstruct (name-and-options lambda-list &rest slots)
-  (destructuring-bind (name &rest options) (ensure-list name-and-options)
+  (destructuring-bind (name &rest options &aux (*package* (symbol-package name))) (ensure-list name-and-options)
     (destructuring-bind (&rest
                            args
                          &key
@@ -148,7 +148,8 @@
                          (parser-call ,next . ,(mapcar #'car all-slots))))
                      (defparser ,derive (,next . ,lambda-list)
                        ,(if include
-                            `(,(symbolicate (car include) '#:-derive)
+                            `(,(let ((*package* (symbol-package (car include))))
+                                 (symbolicate (car include) '#:-derive))
                               ,(if-let ((args (parsonic::lambda-list-arguments lambda-list)))
                                  `(rcurry (curry #',parser ,next) . ,args)
                                  `(curry #',parser ,next))
