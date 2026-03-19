@@ -15,6 +15,7 @@
   (apply #'lisp-type-expr (ensure-list type)))
 
 (defvar *endian*)
+(defvar *byte*)
 (defvar *offset*)
 (defvar *slots*)
 
@@ -23,21 +24,22 @@
                                :collect (etypecase slot
                                           (list (copy-list slot))
                                           (symbol `(,slot 0 :type (position)))))
-        :with byte-var := nil
+        :and byte := (unless (integerp *offset*) *byte*)
         :for (slot) := (or *slots* (loop-finish))
         :for offset := *offset*
+        :for *byte* := (if (integerp offset) (with-gensyms (byte) `(,byte ,offset)) (or *byte* byte))
         :for type := (expand-type (ensure-list (getf (cddr slot) :type)))
         :for (slot-name initform . slot-options) := slot
         :when (and (= offset *offset*) (not (integerp *offset*)))
           :collect `(nil ,(expand-type `(unsigned-byte ,(* (- (ceiling *offset*) *offset*) 8))))
         :when (and (integerp offset) (not (integerp *offset*)))
-          :collect (setf byte-var `(byte ,offset))
+          :collect *byte*
         :when (and (not (integerp offset)) (integerp *offset*))
-          :do (setf (second byte-var) (let ((bytes (- *offset* (second byte-var)))
-                                            (*offset* 0))
-                                        (check-type bytes fixnum)
-                                        (expand-type `(unsigned-byte ,(* bytes 8))))
-                    byte-var nil)
+          :do (setf (second *byte*) (let ((bytes (- *offset* (second *byte*)))
+                                          (*offset* 0))
+                                      (check-type bytes non-negative-fixnum)
+                                      (expand-type `(unsigned-byte ,(* bytes 8))))
+                    *byte* nil *offset* 0)
         :collect `(,slot-name ,type)
         :do (setf *slots* (cdr *slots*))
         :when (and (null *slots*) (not (integerp *offset*)))
