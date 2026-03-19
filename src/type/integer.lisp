@@ -75,8 +75,9 @@
   (destructuring-bind (n) args
     (prog1 (if (and (integerp *offset*) (zerop (mod n 8)))
                (integer-type-parser (cons name args) *endian*)
-               (let ((bit-offset (/ *offset* 1/8)))
-                 `(constantly (the (unsigned-byte ,n) (ldb (byte ,n ,bit-offset) byte)))))
+               (destructuring-bind (byte start) *byte*
+                 (let ((bit-offset (/ (- *offset* start) 1/8)))
+                   `(constantly (the (unsigned-byte ,n) (ldb (byte ,n ,bit-offset) ,byte))))))
       (incf *offset* (/ n 8)))))
 
 (defmethod expand-type-expr ((name (eql 'boolean)) &rest args)

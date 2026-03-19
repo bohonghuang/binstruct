@@ -41,11 +41,15 @@
   (a nil :type (boolean (unsigned-byte 1)))
   (b 0 :type (unsigned-byte 1))
   (c 3 :type (magic (unsigned-byte 2)))
-  (d 0 :type (unsigned-byte 4)))
+  (d 0 :type (unsigned-byte 4))
+  (e 0 :type (signed-byte 9))
+  (f 0 :type (signed-byte 16))
+  (g 0 :type (unsigned-byte 7)))
 
 (define-test bit-field :parent suite
   (is-parse-equal (bitfield-struct)
-    (#(#b10011101) (make-bitfield-struct :a t :b 0 :c 3 :d 9))))
+    (#(#b10011101 #b10010001 #b00000001 #b0000000 #b11111111)
+      (make-bitfield-struct :a t :b 0 :c 3 :d 9 :e -111 :f -32768 :g 127))))
 
 (defbinstruct base-string-struct ()
   (length 0 :type (unsigned-byte 32))
