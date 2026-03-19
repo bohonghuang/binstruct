@@ -113,9 +113,9 @@
                        :when (consp slot)
                          :collect slot)))
         (let ((include (ensure-list include))
-              (parser (symbolicate name '#:-parser))
-              (constructor (symbolicate name '#:-constructor))
-              (derive (symbolicate name '#:-derive))
+              (parser (symbolicate name '#:/parse))
+              (constructor (symbolicate name '#:/construct))
+              (derive (symbolicate name '#:/derive))
               (defstruct-constructor constructor))
           `(progn
              (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -150,7 +150,7 @@
                      (defparser ,derive (,next . ,lambda-list)
                        ,(if include
                             `(,(let ((*package* (symbol-package (car include))))
-                                 (symbolicate (car include) '#:-derive))
+                                 (symbolicate (car include) '#:/derive))
                               ,(if-let ((args (parsonic::lambda-list-arguments lambda-list)))
                                  `(rcurry (curry #',parser ,next) . ,args)
                                  `(curry #',parser ,next))
