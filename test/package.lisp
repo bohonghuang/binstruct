@@ -51,6 +51,18 @@
     (#(#b10011101 #b10010001 #b00000001 #b0000000 #b11111111)
       (make-bitfield-struct :a t :b 0 :c 3 :d 9 :e -111 :f -32768 :g 127))))
 
+(defbinstruct padded-bitfield-struct ()
+  (a nil :type (boolean (unsigned-byte 1)))
+  (b 0 :type (unsigned-byte 1))
+  (c 2 :type (magic (unsigned-byte 2)))
+  (d (make-bitfield-struct) :type (bitfield-struct))
+  (e 0 :type (signed-byte 9)))
+
+(define-test padded-bitfield-struct :parent suite
+  (is-parse-equal (padded-bitfield-struct)
+    (#(#b00001011 #b10011101 #b10010001 #b00000001 #b0000000 #b11111111 #b00000000 #b00000001)
+      (make-padded-bitfield-struct :a t :b 1 :c 2 :d (make-bitfield-struct :a t :b 0 :c 3 :d 9 :e -111 :f -32768 :g 127) :e -256))))
+
 (defbinstruct base-string-struct ()
   (length 0 :type (unsigned-byte 32))
   (fixed-length "" :type (simple-base-string length))

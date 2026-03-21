@@ -20,21 +20,33 @@
 (defvar *bindings*)
 
 (defun slots-parser-bindings (slots)
-  (loop :with *slots* := slots
-        :for ((slot-name nil . slot-options)) := (or *slots* (loop-finish))
-        :for n := (length *bindings*)
-        :for type := (expand-type (ensure-list (getf slot-options :type)))
-        :nconc (when-let ((new-bindings (nthcdr n *bindings*)))
-                 (setf *bindings* (nbutlast *bindings* (length new-bindings)))
-                 new-bindings)
-          :into *bindings*
-        :collect `(,slot-name ,type) :into *bindings*
-        :do (setf *slots* (cdr *slots*))
-        :finally (return *bindings*)))
+  (let ((bindings (and (boundp '*bindings*) (listp *bindings*))))
+    (prog1 (loop :with *slots* := slots
+                 :for ((slot-name nil . slot-options)) := (or *slots* (loop-finish))
+                 :for n := (length *bindings*)
+                 :for offset := *offset*
+                 :for type := (expand-type (ensure-list (getf slot-options :type)))
+                 :when (and (= offset *offset*) (not (integerp *offset*)))
+                   :do (nconcf *bindings* (list `(nil ,(expand-type `(unsigned-byte ,(* (- (ceiling *offset*) *offset*) 8))))))
+                 :nconc (when-let ((new-bindings (nthcdr n *bindings*)))
+                          (setf *bindings* (nbutlast *bindings* (length new-bindings)))
+                          new-bindings)
+                   :into *bindings*
+                 :collect `(,slot-name ,type) :into *bindings*
+                 :do (setf *slots* (cdr *slots*))
+                 :finally
+                    (unless (integerp *offset*)
+                      (if bindings
+                          (setf bindings (list (find-if (rcurry #'get '*offset*) *bindings* :from-end t :key #'car)))
+                          (nconcf *bindings* (list `(nil ,(expand-type `(unsigned-byte ,(* (- (ceiling *offset*) *offset*) 8))))))))
+                    (return *bindings*))
+      (when (consp bindings)
+        (nconcf *bindings* bindings)))))
 
 (defun expand-type-unit (type &key (endian :little) (offset 0))
   (let ((*endian* endian)
-        (*offset* offset))
+        (*offset* offset)
+        (*bindings* t))
     (with-gensyms (slot)
       `(let* ,(slots-parser-bindings `((,slot nil :type ,type)))
          (constantly ,slot)))))

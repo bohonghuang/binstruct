@@ -78,10 +78,10 @@
                         (if (zerop (mod n 8))
                             (return-from expand-type-expr (integer-type-parser (cons name args) *endian*))
                             (with-gensyms (byte)
-                              (setf (get byte 'byte) t)
+                              (setf (get byte '*offset*) t)
                               (nconcf *bindings* (list `(,byte ,offset)))
                               (list byte offset)))
-                        (find-if (rcurry #'get 'byte) *bindings* :from-end t :key #'car))))
+                        (find-if (rcurry #'get '*offset*) *bindings* :from-end t :key #'car))))
       (destructuring-bind (byte start) binding
         (prog1 (let ((bit-offset (/ (- offset start) 1/8)))
                  `(constantly (the (unsigned-byte ,n) (ldb (byte ,n ,bit-offset) ,byte))))
