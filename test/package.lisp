@@ -205,3 +205,15 @@
                 (make-typed-struct-boolean :value t)
                 (make-typed-struct-integer :value #x12345678)
                 (make-typed-struct-string :value (coerce "test" 'simple-base-string))))))))
+
+(defbinstruct displaced-array-struct ()
+  (length 0 :type (unsigned-byte 8))
+  (array (make-array 0 :element-type '(unsigned-byte 8)) :type (array (unsigned-byte 8) (length))))
+
+(define-test displaced-array :parent suite
+  (let ((parser (parser-lambda (input) (declare (type (simple-array (unsigned-byte 8) (*)) input)) (displaced-array-struct))))
+    (let* ((input (coerce #(4 #x12 #x34 #x56 #x78) '(simple-array (unsigned-byte 8) (*))))
+           (array (displaced-array-struct-array (funcall parser input))))
+      (is-values (array-displacement array) (eq input) (= 1))
+      (is equalp (coerce #(#x12 #x34 #x56 #x78) '(simple-array (unsigned-byte 8) (*))) array))
+    (true (nth-value 1 (funcall parser (coerce #(4 #x12 #x34 #x56) '(simple-array (unsigned-byte 8) (*))))))))
