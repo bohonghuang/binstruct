@@ -73,12 +73,22 @@
 
 (defmethod expand-type-expr ((name (eql 'unsigned-byte)) &rest args)
   (destructuring-bind (n) args
-    (prog1 (if (and (integerp *offset*) (zerop (mod n 8)))
-               (integer-type-parser (cons name args) *endian*)
-               (destructuring-bind (byte start) *byte*
-                 (let ((bit-offset (/ (- *offset* start) 1/8)))
-                   `(constantly (the (unsigned-byte ,n) (ldb (byte ,n ,bit-offset) ,byte))))))
-      (incf *offset* (/ n 8)))))
+    (let* ((offset (prog1 *offset* (incf *offset* (/ n 8))))
+           (binding (if (integerp offset)
+                        (if (zerop (mod n 8))
+                            (return-from expand-type-expr (integer-type-parser (cons name args) *endian*))
+                            (with-gensyms (byte)
+                              (setf (get byte 'byte) t)
+                              (nconcf *bindings* (list `(,byte ,offset)))
+                              (list byte offset)))
+                        (find-if (rcurry #'get 'byte) *bindings* :from-end t :key #'car))))
+      (destructuring-bind (byte start) binding
+        (prog1 (let ((bit-offset (/ (- offset start) 1/8)))
+                 `(constantly (the (unsigned-byte ,n) (ldb (byte ,n ,bit-offset) ,byte))))
+          (when (integerp *offset*)
+            (setf (second binding) (let ((bytes (- *offset* start)) (*offset* 0))
+                                     (check-type bytes positive-fixnum)
+                                     (expand-type `(unsigned-byte ,(* bytes 8)))))))))))
 
 (defmethod expand-type-expr ((name (eql 'boolean)) &rest args)
   (destructuring-bind (&optional (actual-type '(unsigned-byte 8))) args
