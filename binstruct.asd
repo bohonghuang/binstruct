@@ -7,7 +7,7 @@
   :homepage "https://github.com/bohonghuang/binstruct"
   :bug-tracker "https://github.com/bohonghuang/binstruct/issues"
   :source-control (:git "https://github.com/bohonghuang/binstruct.git")
-  :depends-on (#:alexandria #:parsonic)
+  :depends-on (#:alexandria #:parsonic #:parsonic.stream)
   :pathname "src/"
   :components ((:file "package")
                (:file "interface" :depends-on ("package"))
@@ -17,7 +17,10 @@
                              (:file "pointer")
                              (:file "sequence")
                              (:file "string")
-                             (:file "custom"))
+                             (:file "custom")
+                             (:module "optimize"
+                              :components ((:file "sequence"))
+                              :depends-on ("sequence")))
                 :depends-on ("package" "interface")))
   :in-order-to ((test-op (test-op #:binstruct/test))))
 

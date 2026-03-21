@@ -1,0 +1,46 @@
+(in-package #:binstruct)
+
+(defconstant +input-type-simple-array-unsigned-byte-8+ (intern (princ-to-string '(simple-array (unsigned-byte 8) (*)))))
+(defconstant +input-type-array-unsigned-byte-8+ (intern (princ-to-string '(array (unsigned-byte 8) (*)))))
+
+(defgeneric input-read-sequence/compile (input length)
+  (:method ((input (eql parsonic::+input-type-simple-array-unsigned-byte-8+)) length)
+    (once-only (length)
+      (with-gensyms (index)
+        `(let ((,index (+ ,parsonic::*input-index* ,length)))
+           (if (<= ,index ,parsonic::*input-length*)
+               (prog1 (subseq ,input ,parsonic::*input-index* ,index)
+                 (setf ,parsonic::*input-index* ,index))
+               parsonic::+input-eof+)))))
+  (:method ((input (eql parsonic::+input-type-simple-array-unsigned-byte-8+)) (length (eql +input-type-array-unsigned-byte-8+)))
+    (once-only (length)
+      (with-gensyms (index)
+        `(let ((,index (+ ,parsonic::*input-index* ,length)))
+           (if (<= ,index ,parsonic::*input-length*)
+               (prog1 (make-array ,length :element-type '(unsigned-byte 8)
+                                          :displaced-to ,input
+                                          :displaced-index-offset ,parsonic::*input-index*)
+                 (setf ,parsonic::*input-index* ,index))
+               parsonic::+input-eof+)))))
+  (:method ((input (eql 'parsonic::binary-input-stream)) length)
+    (once-only (length)
+      (with-gensyms (array)
+        `(let ((,array (make-array ,length :element-type '(unsigned-byte 8))))
+           (if (= (buffered-streams::stream-ring-buffer-read-sequence ,parsonic::*input-ring-buffer* ,array 0 (length ,array)) ,length)
+               ,array
+               parsonic::+input-eof+))))))
+
+(defmethod parsonic::expand-expr/compile :around ((op (eql 'sequence)) &rest args)
+  (destructuring-bind (element length (quote (array-type array-element-type (array-length)))) args
+    (declare (ignore element array-length))
+    (assert (eq quote 'quote))
+    (if (equal array-element-type '(unsigned-byte 8))
+        (let ((var (ecase array-type
+                     (simple-array +input-type-simple-array-unsigned-byte-8+)
+                     (array +input-type-array-unsigned-byte-8+))))
+          (with-gensyms (result)
+            (parsonic::expand/compile
+             `(let ((,result (constantly (let ((,var ,length)) ,(input-read-sequence/compile parsonic::*codegen-input* var)))))
+                (rep (or) (if (eq ,result parsonic::+input-eof+) 1 0))
+                (constantly ,result)))))
+        (call-next-method))))
