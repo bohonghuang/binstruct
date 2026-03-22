@@ -229,3 +229,14 @@
       (is-values (array-displacement array) (eq input) (= 1))
       (is equalp (coerce #(#x12 #x34 #x56 #x78) '(simple-array (unsigned-byte 8) (*))) array))
     (true (nth-value 1 (funcall parser (coerce #(4 #x12 #x34 #x56) '(simple-array (unsigned-byte 8) (*))))))))
+
+(defbinstruct list-struct ()
+  (a (cons 0 0) :type (cons (unsigned-byte 4) (unsigned-byte 4)))
+  (b 0 :type (unsigned-byte 1))
+  (c 0 :type (list (unsigned-byte 7) (unsigned-byte 3)))
+  (d 0 :type (unsigned-byte 5)))
+
+(define-test list-struct :parent suite
+  (is-parse-equal (list-struct)
+    (#(#b11110000 #b10000001 #b10000111)
+      (make-list-struct :a (cons 0 15) :b 1 :c (list 64 7) :d 16))))

@@ -36,7 +36,3 @@
 
 (defmethod lisp-type-expr ((name (eql 'or)) &rest args)
   `(or . ,(loop :for type :in args :collect (lisp-type type))))
-
-(defmethod expand-type-expr ((name (eql 'null)) &rest args)
-  (assert (null args))
-  '(constantly nil))

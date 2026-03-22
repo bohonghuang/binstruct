@@ -18,6 +18,7 @@
                              (:file "sequence")
                              (:file "string")
                              (:file "custom")
+                             (:file "list")
                              (:module "optimize"
                               :components ((:file "sequence"))
                               :depends-on ("sequence")))
