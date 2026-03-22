@@ -149,12 +149,15 @@
                                    (append list list)))))))
 
 (defbinstruct (derived-struct (:include basic-struct)) (&optional (n 1))
+  (p 0 :type position)
   (e (make-array 0 :element-type '(unsigned-byte 8)) :type (simple-array (unsigned-byte 8) (n)))
   (f 0 :type (signed-byte 16)))
 
 (defbinstruct (derived-derived-struct (:include (derived-struct (1- n)))) (n)
   (g 0 :type (unsigned-byte 16))
-  (h (make-array 0 :element-type '(signed-byte 8)) :type (simple-array (signed-byte 8) ((+ n (- 2 a) b)))))
+  (h (make-array 0 :element-type '(signed-byte 8)) :type (custom
+                                                          (simple-array (signed-byte 8) ((+ n (- 2 a) b)))
+                                                          (lambda (array) (assert (= p 8)) array))))
 
 (define-test derived-struct :parent suite
   (is-parse-equal (derived-struct)

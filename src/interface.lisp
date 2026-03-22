@@ -107,10 +107,12 @@
                            (*offset* 0))
         (mappend #'identity options)
       (delete-from-plistf args :constructor :include :endian)
-      (labels ((excluded-slot-p (slot)
+      (labels ((slot-name (slot)
+                 (getf slot :slot (car slot)))
+               (excluded-slot-p (slot)
                  (or (let ((type (getf slot :type)))
                        (eq type 'position))
-                     (null (getf slot :slot (car slot)))))
+                     (null (slot-name slot))))
                (slots (&optional (slots (cons (car (ensure-list include)) slots)))
                  (loop :for slot :in slots
                        :when (symbolp slot)
@@ -140,15 +142,18 @@
                      ',type))
                (setf (get ',name 'slots) ',(cons (car include) slots)))
              ,(with-gensyms (next)
-                (let* ((all-slots (delete-if #'excluded-slot-p (slots)))
-                       (ancestor-slots (when include (delete-if #'excluded-slot-p (slots (list (car include)))))))
+                (let* ((all-slots (delete-if-not #'slot-name (slots)))
+                       (defstruct-slots (remove-if #'excluded-slot-p all-slots))
+                       (ancestor-slots (when include (delete-if-not #'slot-name (slots (list (car include)))))))
                   `(progn
                      (defparser ,constructor ,(mapcar #'car all-slots)
                        (constantly
-                        (the ,type (,defstruct-constructor
-                                       . ,(loop :for slot :in all-slots
-                                                :for (name) := slot
-                                                :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot)))))))
+                        (progn
+                          ,@(set-difference (mapcar #'car all-slots) (mapcar #'car defstruct-slots))
+                          (the ,type (,defstruct-constructor
+                                         . ,(loop :for slot :in defstruct-slots
+                                                  :for (name) := slot
+                                                  :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot))))))))
                      (defparser ,parser (,next ,@(mapcar #'car ancestor-slots) ,@lambda-list)
                        (let* ,(slots-parser-bindings slots)
                          (parser-call ,next . ,(mapcar #'car all-slots))))
