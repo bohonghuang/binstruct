@@ -240,3 +240,11 @@
   (is-parse-equal (list-struct)
     (#(#b11110000 #b10000001 #b10000111)
       (make-list-struct :a (cons 0 15) :b 1 :c (list 64 7) :d 16))))
+
+(defbinstruct skip-struct ()
+  (nil 0 :type (simple-array (unsigned-byte 8) (2)))
+  (a 0 :type (unsigned-byte 8)))
+
+(define-test skip-struct :parent suite
+  (is-parse-equal (skip-struct)
+    (#(0 0 12) (make-skip-struct :a 12))))

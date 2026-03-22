@@ -9,6 +9,10 @@
     (declare (type non-negative-fixnum position))
     (position (+ position n))))
 
+(defmethod lisp-type-expr ((name (eql 'skip)) &rest args)
+  (destructuring-bind () args
+    'null))
+
 (defmethod expand-type-expr ((name (eql 'peek)) &rest args)
   (destructuring-bind (type &optional position) args
     (if position
