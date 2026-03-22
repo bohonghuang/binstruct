@@ -1,7 +1,17 @@
 (in-package #:binstruct)
 
+(defvar *endian*)
+(defvar *offset*)
+(defvar *slots*)
+(defvar *bindings*)
+
+(defun finish-partial-byte ()
+  (unless (integerp *offset*)
+    (nconcf *bindings* (list `(nil ,(expand-type `(unsigned-byte ,(* (- (ceiling *offset*) *offset*) 8))))))))
+
 (defgeneric expand-type-expr (name &rest args)
   (:method (name &rest args)
+    (finish-partial-byte)
     (cons name args)))
 
 (defun expand-type (desc)
@@ -14,36 +24,34 @@
 (defun lisp-type (type)
   (apply #'lisp-type-expr (ensure-list type)))
 
-(defvar *endian*)
-(defvar *offset*)
-(defvar *slots*)
-(defvar *bindings*)
-
 (defun slots-parser-bindings (slots)
-  (let ((bindings (and (boundp '*bindings*) (listp *bindings*))))
+  (let ((bindings (if (boundp '*bindings*) *bindings* t)))
     (prog1 (loop :with *slots* := slots
                  :for ((slot-name nil . slot-options)) := (or *slots* (loop-finish))
-                 :for n := (length *bindings*)
                  :for offset := *offset*
-                 :for type := (expand-type (ensure-list (getf slot-options :type)))
-                 :when (and (= offset *offset*) (not (integerp *offset*)))
-                   :do (nconcf *bindings* (list `(nil ,(expand-type `(unsigned-byte ,(* (- (ceiling *offset*) *offset*) 8))))))
-                 :nconc (when-let ((new-bindings (nthcdr n *bindings*)))
-                          (setf *bindings* (nbutlast *bindings* (length new-bindings)))
-                          new-bindings)
+                 :for type := (ensure-list (getf slot-options :type))
+                 :nconc (let ((*bindings* (append (when (consp bindings) (remove-if-not (rcurry #'get 'offset) bindings :key #'car)) *bindings*)))
+                          (nthcdr (length *bindings*) (progn (setf type (expand-type type)) *bindings*)))
                    :into *bindings*
-                 :collect `(,slot-name ,type) :into *bindings*
+                 :collect `(,slot-name ,type)
+                   :into *bindings*
                  :do (setf *slots* (cdr *slots*))
                  :finally
                     (unless (integerp *offset*)
-                      (if bindings
-                          (setf bindings (list (find-if (rcurry #'get '*offset*) *bindings* :from-end t :key #'car)))
-                          (nconcf *bindings* (list `(nil ,(expand-type `(unsigned-byte ,(* (- (ceiling *offset*) *offset*) 8))))))))
+                      (if (listp bindings)
+                          (with-gensyms (offset)
+                            (let ((binding (find-if (rcurry #'get 'offset) *bindings* :from-end t :key #'car)))
+                              (setf (symbol-plist offset) (symbol-plist (car binding))
+                                    bindings (list `(,offset (constantly nil))))
+                              (nconcf *bindings* (list `(nil (constantly (setf ,offset ,(car binding))))))))
+                          (finish-partial-byte)))
                     (return *bindings*))
       (when (consp bindings)
         (nconcf *bindings* bindings)))))
 
 (defun expand-type-unit (type &key (endian :little) (offset 0))
+  (when (and (boundp '*offset*) (boundp '*bindings*))
+    (finish-partial-byte))
   (let ((*endian* endian)
         (*offset* offset)
         (*bindings* t))

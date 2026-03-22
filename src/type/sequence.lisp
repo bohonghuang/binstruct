@@ -11,6 +11,7 @@
     (coerce list type)))
 
 (defmethod expand-type-expr ((name (eql 'simple-array)) &rest args)
+  (finish-partial-byte)
   (destructuring-bind (type (length)) args
     `(sequence ,(expand-type-unit type) ,length ',(lisp-type (cons name args)))))
 
@@ -18,5 +19,6 @@
   (cons name (cdr (apply #'lisp-type-expr 'simple-array args))))
 
 (defmethod expand-type-expr ((name (eql 'array)) &rest args)
+  (finish-partial-byte)
   (destructuring-bind (type (length)) args
     `(sequence ,(expand-type-unit type) ,length ',(lisp-type (cons name args)))))
