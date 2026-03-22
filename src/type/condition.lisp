@@ -5,7 +5,7 @@
                        &optional
                          (value
                           (progn
-                            (assert (equal (getf (car *slots*) :type) (cons name args)))
+                            (assert (equal (getf (first *slots*) :type) (cons name args)))
                             (second (car *slots*)))))
       args
     (with-gensyms (actual-value)

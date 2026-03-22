@@ -83,11 +83,14 @@
                                 (nconcf *bindings* (list binding))
                                 binding)))
                         (find-if (rcurry #'get 'offset) *bindings* :from-end t :key #'car))))
-      (let* ((byte (first binding)) (parser (get byte 'offset)) (start (car parser)))
+      (destructuring-bind (byte value &aux (parser (get byte 'offset)) (start (car parser))) binding
+        (declare (ignore value))
+        (assert (null (symbol-package byte)))
         (prog1 (let ((bit-offset (/ (- offset start) 1/8)))
                  `(constantly (the (unsigned-byte ,n) (ldb (byte ,n ,bit-offset) ,byte))))
           (when (integerp *offset*)
-            (setf (second binding) `(constantly 0)
+            (setf (symbol-plist byte) nil
+                  (second binding) `(constantly 0)
                   (car parser) (let ((bytes (- *offset* start)) (*offset* 0))
                                  (check-type bytes positive-fixnum)
                                  (expand-type `(unsigned-byte ,(* bytes 8)))))))))))

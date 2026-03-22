@@ -26,7 +26,7 @@
 
 (defmethod expand-type-expr ((name (eql 'pointer)) &rest args)
   (destructuring-bind (data-type pointer-type &optional (base 0)) args
-    (let ((slot (car *slots*)))
+    (let ((slot (first *slots*)))
       (nconcf (cdr *slots*) (list `(,(first slot) ,(second slot) :type (peek ,data-type (+ ,base ,(first slot))))))
       (setf (second slot) 0))
     (expand-type pointer-type)))

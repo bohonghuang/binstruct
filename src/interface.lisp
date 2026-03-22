@@ -26,25 +26,23 @@
 
 (defun slots-parser-bindings (slots)
   (let ((bindings (if (boundp '*bindings*) *bindings* t)))
-    (prog1 (loop :with *slots* := slots
-                 :for ((slot-name nil . slot-options)) := (or *slots* (loop-finish))
-                 :for offset := *offset*
-                 :for type := (ensure-list (getf slot-options :type))
-                 :nconc (let ((*bindings* (append (when (consp bindings) (remove-if-not (rcurry #'get 'offset) bindings :key #'car)) *bindings*)))
-                          (nthcdr (length *bindings*) (progn (setf type (expand-type type)) *bindings*)))
-                   :into *bindings*
-                 :collect `(,slot-name ,type)
-                   :into *bindings*
-                 :do (setf *slots* (cdr *slots*))
+    (prog1 (loop :for *slots* :on slots
+                 :for ((name nil . options)) := *slots*
+                 :for *bindings* := (let* ((bindings (when (consp bindings) (remove-if-not #'symbol-plist bindings :key #'car)))
+                                           (*bindings* (append bindings *bindings*))
+                                           (type (expand-type (getf options :type))))
+                                      (nconc (nthcdr (length bindings) *bindings*) (list `(,name ,type))))
                  :finally
-                    (unless (integerp *offset*)
-                      (if (listp bindings)
-                          (with-gensyms (offset)
-                            (let ((binding (find-if (rcurry #'get 'offset) *bindings* :from-end t :key #'car)))
-                              (setf (symbol-plist offset) (symbol-plist (car binding))
-                                    bindings (list `(,offset (constantly nil))))
-                              (nconcf *bindings* (list `(nil (constantly (setf ,offset ,(car binding))))))))
-                          (finish-partial-byte)))
+                    (if (listp bindings)
+                        (loop :for (var val) :in *bindings*
+                              :for pvar := (gensym (string '#:pvar))
+                              :when (setf (symbol-plist pvar) (symbol-plist var))
+                                :collect `(,pvar (constantly nil)) :into parent-bindings
+                                :and :collect `(nil (constantly (setf ,pvar ,var))) :into new-bindings
+                              :finally
+                                 (setf bindings parent-bindings)
+                                 (nconcf *bindings* new-bindings))
+                        (finish-partial-byte))
                     (return *bindings*))
       (when (consp bindings)
         (nconcf *bindings* bindings)))))
