@@ -168,3 +168,22 @@
                             `(,parser ,next . ,(parsonic::lambda-list-arguments lambda-list))))
                      (defparser ,name ,lambda-list
                        (,derive #',constructor . ,(parsonic::lambda-list-arguments lambda-list))))))))))))
+
+(define-condition deserialize-error ()
+  ((position :initarg :position :reader deserialize-error-position))
+  (:report (lambda (condition stream)
+             (format stream "Parse error at position ~A" (deserialize-error-position condition)))))
+
+(defmacro defbinio ((name &rest lambda-list) type)
+  (let ((reader (symbolicate '#:read- name)))
+    (with-gensyms (input result error)
+      `(defun ,reader (,input . ,lambda-list)
+         (multiple-value-bind (,result ,error)
+             (funcall
+              (parser-lambda (,input)
+                (declare (type ,(case type (stream 'parsonic::binary-input-stream) (t type)) ,input))
+                (,name . ,(parsonic::lambda-list-arguments lambda-list)))
+              ,input)
+           (if ,error
+               (error 'deserialize-error :position ,error)
+               ,result))))))
