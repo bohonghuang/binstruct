@@ -71,6 +71,17 @@
 
 (define-unsigned-integer-parsers)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmethod parsonic::expand-expr ((name (eql 'unsigned-byte)) &rest args)
+    (parsonic::expand (integer-type-parser (cons name args)))))
+
+(defmethod parsonic::expand-expr ((name (eql 'signed-byte)) &rest args)
+  (destructuring-bind (n) args
+    (with-gensyms (unsigned)
+      (parsonic::expand
+       `(for ((,unsigned (unsigned-byte ,n)))
+          (the (signed-byte ,n) (unsigned-signed-integer ,unsigned ,n)))))))
+
 (defmethod expand-type-expr ((name (eql 'unsigned-byte)) &rest args)
   (destructuring-bind (n) args
     (let* ((offset (prog1 *offset* (incf *offset* (/ n 8))))
@@ -94,6 +105,10 @@
                   (car parser) (let ((bytes (- *offset* start)) (*offset* 0))
                                  (check-type bytes positive-fixnum)
                                  (expand-type `(unsigned-byte ,(* bytes 8)))))))))))
+
+(defparser boolean (&optional (parser (unsigned-byte 8)))
+  (for ((value parser))
+    (plusp value)))
 
 (defmethod expand-type-expr ((name (eql 'boolean)) &rest args)
   (destructuring-bind (&optional (type '(unsigned-byte 8))) args

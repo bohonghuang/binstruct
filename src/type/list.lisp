@@ -1,5 +1,8 @@
 (in-package #:binstruct)
 
+(defparser null ()
+  (constantly nil))
+
 (defmethod expand-type-expr ((name (eql 'null)) &rest args)
   (assert (null args))
   '(constantly nil))

@@ -1,5 +1,10 @@
 (in-package #:binstruct)
 
+(defparser magic (parser expected)
+  (let ((value parser))
+    (rep (or) (if (equalp value expected) 0 1))
+    (constantly value)))
+
 (defmethod expand-type-expr ((name (eql 'magic)) &rest args)
   (destructuring-bind (type
                        &optional
@@ -18,13 +23,13 @@
     (declare (ignore value))
     (lisp-type type)))
 
-(defmethod expand-type-expr ((name (eql 'ecase)) &rest args)
+(defmethod parsonic::expand-expr ((name (eql 'ecase)) &rest args)
   (destructuring-bind (object &rest clauses) args
-    `(funcall
-      (lambda ()
-        (ecase ,object
-          . ,(loop :for (key type) :in clauses
-                   :collect `(,key (parser ,(expand-type-unit type)))))))))
+    (parsonic::expand
+     `((lambda ()
+         (ecase ,object
+           . ,(loop :for (key type) :in clauses
+                    :collect `(,key (parser ,type)))))))))
 
 (defmethod lisp-type-expr ((name (eql 'ecase)) &rest args)
   (destructuring-bind (object &rest clauses) args
