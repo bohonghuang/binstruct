@@ -1,22 +1,22 @@
 (in-package #:binstruct)
 
 (defmethod expand-type-expr ((name (eql 'magic)) &rest args)
-  (destructuring-bind (actual-type
+  (destructuring-bind (type
                        &optional
-                         (value
+                         (expected
                           (progn
                             (assert (equal (getf (first *slots*) :type) (cons name args)))
                             (second (car *slots*)))))
       args
-    (with-gensyms (actual-value)
-      `(let ((,actual-value ,(expand-type actual-type)))
-         (rep (or) (if (equalp ,actual-value ,value) 0 1))
-         (constantly ,actual-value)))))
+    (with-gensyms (value)
+      `(let ((,value ,(expand-type type)))
+         (rep (or) (if (equalp ,value ,expected) 0 1))
+         (constantly ,value)))))
 
 (defmethod lisp-type-expr ((name (eql 'magic)) &rest args)
-  (destructuring-bind (actual-type &optional value) args
+  (destructuring-bind (type &optional value) args
     (declare (ignore value))
-    (lisp-type actual-type)))
+    (lisp-type type)))
 
 (defmethod expand-type-expr ((name (eql 'ecase)) &rest args)
   (destructuring-bind (object &rest clauses) args

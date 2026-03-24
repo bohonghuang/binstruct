@@ -1,10 +1,10 @@
 (in-package #:binstruct)
 
 (defmethod expand-type-expr ((name (eql 'custom)) &rest args)
-  (destructuring-bind (actual-type reader &optional writer) args
+  (destructuring-bind (type &optional (reader '#'identity) (writer '#'identity)) args
     (declare (ignore writer))
     (with-gensyms (value)
-      `(for ((,value ,(expand-type actual-type)))
+      `(for ((,value ,(expand-type type)))
          (funcall ,reader ,value)))))
 
 (defmethod lisp-type-expr ((name (eql 'custom)) &rest args)

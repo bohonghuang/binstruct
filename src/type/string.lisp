@@ -9,8 +9,8 @@
   (declare (ignore args))
   '(simple-array base-char (*)))
 
-(defparser terminated-base-string (&optional (terminator #x00))
-  (for ((list (prog1 (rep (satisfies (lambda (byte) (not (= byte terminator)))))
+(defparser terminated-base-string (&optional (length 0) (terminator #x00))
+  (for ((list (prog1 (rep (satisfies (lambda (byte) (not (= byte terminator)))) length)
                 (satisfies (lambda (byte) (= byte terminator))))))
     (bytes-base-string list)))
 

@@ -96,13 +96,13 @@
                                  (expand-type `(unsigned-byte ,(* bytes 8)))))))))))
 
 (defmethod expand-type-expr ((name (eql 'boolean)) &rest args)
-  (destructuring-bind (&optional (actual-type '(unsigned-byte 8))) args
-    (with-gensyms (actual-value)
-      `(for ((,actual-value ,(expand-type actual-type)))
-         (declare (type ,actual-type ,actual-value))
-         (plusp ,actual-value)))))
+  (destructuring-bind (&optional (type '(unsigned-byte 8))) args
+    (with-gensyms (value)
+      `(for ((,value ,(expand-type type)))
+         (declare (type ,type ,value))
+         (plusp ,value)))))
 
 (defmethod lisp-type-expr ((name (eql 'boolean)) &rest args)
-  (destructuring-bind (&optional actual-type) args
-    (declare (ignore actual-type))
+  (destructuring-bind (&optional type) args
+    (declare (ignore type))
     'boolean))

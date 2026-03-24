@@ -66,7 +66,7 @@
 (defbinstruct base-string-struct ()
   (length 0 :type (unsigned-byte 32))
   (fixed-length "" :type (simple-base-string length))
-  (zero-terminated "" :type (terminated-base-string '#x00)))
+  (zero-terminated "" :type terminated-base-string))
 
 (define-test base-string :parent suite
   (is-parse-equal (base-string-struct)
@@ -191,7 +191,7 @@
   (value 0 :type (signed-byte 32)))
 
 (defbinstruct (typed-struct-string (:include (typed-struct #x03))) ()
-  (value 0 :type (terminated-base-string #x00)))
+  (value 0 :type terminated-base-string))
 
 (defbinstruct or-struct ()
   (length 0 :type (unsigned-byte 8))
