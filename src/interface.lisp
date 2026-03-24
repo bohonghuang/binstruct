@@ -149,18 +149,9 @@
                               :unless (excluded-slot-p slot)
                                 :collect (list* (getf slot :slot name) initform (nconc (remove-from-plist options :type) (list :type (lisp-type (getf options :type))))))))
                ,(with-gensyms (var args)
-                  `(progn
-                     ,(when-let ((inlined-args *inlines*))
-                        `(defmethod expand-type-expr ((,var (eql ',name)) &rest ,args)
-                           (destructuring-bind ,lambda-list ,args
-                             (list ',name . ,(loop :for arg :in (parsonic::lambda-list-arguments lambda-list)
-                                                   :if (member arg inlined-args)
-                                                     :collect `(expand-type ,arg)
-                                                   :else
-                                                     :collect arg)))))
-                     (defmethod lisp-type-expr ((,var (eql ',name)) &rest ,args)
-                       (declare (ignore ,var ,args))
-                       ',type)))
+                  `(defmethod lisp-type-expr ((,var (eql ',name)) &rest ,args)
+                     (declare (ignore ,var ,args))
+                     ',type))
                (setf (get ',name 'slots) ',(cons (car include) slots)))
              ,(with-gensyms (next)
                 (let* ((all-slots (delete-if-not #'slot-name (slots)))

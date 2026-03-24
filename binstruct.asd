@@ -14,7 +14,8 @@
                (:module "type"
                 :components ((:file "condition")
                              (:file "integer")
-                             (:file "pointer")
+                             (:file "boolean" :depends-on ("integer"))
+                             (:file "pointer" :depends-on ("integer"))
                              (:file "sequence")
                              (:file "string")
                              (:file "custom")
