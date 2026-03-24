@@ -251,3 +251,22 @@
 (define-test skip-struct :parent suite
   (is-parse-equal (skip-struct)
     (#(0 0 12) (make-skip-struct :a 12))))
+
+(defbinstruct parametric-type-struct (type)
+  (start 0 :type position)
+  (body nil :type (inline type))
+  (end 0 :type position)
+  (size 0 :type (custom null (constantly (- end start)))))
+
+(defbinstruct test-parametric-type-struct ()
+  (int (make-parametric-type-struct) :type (parametric-type-struct (unsigned-byte 8)))
+  (string (make-parametric-type-struct) :type (parametric-type-struct terminated-base-string))
+  (null (make-parametric-type-struct) :type (parametric-type-struct null)))
+
+(define-test parametric-type-struct :parent suite
+  (is-parse-equal (test-parametric-type-struct)
+    (#(#x12 #x74 #x65 #x73 #x74 #x00)
+      (make-test-parametric-type-struct
+       :int (make-parametric-type-struct :body #x12 :size 1)
+       :string (make-parametric-type-struct :body (coerce "test" 'simple-base-string) :size 5)
+       :null (make-parametric-type-struct :body nil :size 0)))))

@@ -4,6 +4,7 @@
 (defvar *offset*)
 (defvar *slots*)
 (defvar *bindings*)
+(defvar *inlines*)
 
 (defun finish-partial-byte ()
   (unless (integerp *offset*)
@@ -92,6 +93,15 @@
                  `(for ((,',value ,(let ((*endian* ,endian)) (expand-type ',type))))
                     (,',unpack ,',value))))))))))
 
+(defmethod expand-type-expr ((name (eql 'inline)) &rest args)
+  (destructuring-bind (var) args
+    (pushnew var *inlines*)
+    var))
+
+(defmethod lisp-type-expr ((name (eql 'inline)) &rest args)
+  (declare (ignore args))
+  t)
+
 (defmacro defbinstruct (name-and-options lambda-list &rest slots)
   (destructuring-bind (name &rest options &aux (*package* (symbol-package name))) (ensure-list name-and-options)
     (destructuring-bind (&rest
@@ -104,7 +114,8 @@
                          &allow-other-keys
                          &aux
                            (*endian* endian)
-                           (*offset* 0))
+                           (*offset* 0)
+                           (*inlines* nil))
         (mappend #'identity options)
       (delete-from-plistf args :constructor :include :endian)
       (labels ((slot-name (slot)
@@ -123,7 +134,8 @@
               (parser (symbolicate name '#:/parse))
               (constructor (symbolicate name '#:/construct))
               (derive (symbolicate name '#:/derive))
-              (defstruct-constructor constructor))
+              (defstruct-constructor constructor)
+              (bindings (slots-parser-bindings slots)))
           `(progn
              (eval-when (:compile-toplevel :load-toplevel :execute)
                ,(unless typep
@@ -137,9 +149,18 @@
                               :unless (excluded-slot-p slot)
                                 :collect (list* (getf slot :slot name) initform (nconc (remove-from-plist options :type) (list :type (lisp-type (getf options :type))))))))
                ,(with-gensyms (var args)
-                  `(defmethod lisp-type-expr ((,var (eql ',name)) &rest ,args)
-                     (declare (ignore ,var ,args))
-                     ',type))
+                  `(progn
+                     ,(when-let ((inlined-args *inlines*))
+                        `(defmethod expand-type-expr ((,var (eql ',name)) &rest ,args)
+                           (destructuring-bind ,lambda-list ,args
+                             (list ',name . ,(loop :for arg :in (parsonic::lambda-list-arguments lambda-list)
+                                                   :if (member arg inlined-args)
+                                                     :collect `(expand-type ,arg)
+                                                   :else
+                                                     :collect arg)))))
+                     (defmethod lisp-type-expr ((,var (eql ',name)) &rest ,args)
+                       (declare (ignore ,var ,args))
+                       ',type)))
                (setf (get ',name 'slots) ',(cons (car include) slots)))
              ,(with-gensyms (next)
                 (let* ((all-slots (delete-if-not #'slot-name (slots)))
@@ -155,7 +176,7 @@
                                                   :for (name) := slot
                                                   :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot))))))))
                      (defparser ,parser (,next ,@(mapcar #'car ancestor-slots) ,@lambda-list)
-                       (let* ,(slots-parser-bindings slots)
+                       (let* ,bindings
                          (parser-call ,next . ,(mapcar #'car all-slots))))
                      (defparser ,derive (,next . ,lambda-list)
                        ,(if include
