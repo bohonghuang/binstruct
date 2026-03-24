@@ -26,7 +26,7 @@
 
 (defun slots-parser-bindings (slots)
   (let ((bindings (if (boundp '*bindings*) *bindings* t)))
-    (prog1 (loop :for *slots* :on slots
+    (prog1 (loop :for *slots* :on (copy-list slots)
                  :for ((name nil . options)) := *slots*
                  :for *bindings* := (let* ((bindings (when (consp bindings) (remove-if-not #'symbol-plist bindings :key #'car)))
                                            (*bindings* (append bindings *bindings*))
