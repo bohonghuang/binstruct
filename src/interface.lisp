@@ -25,6 +25,14 @@
 (defun lisp-type (type)
   (apply #'lisp-type-expr (ensure-list type)))
 
+(defun slot-name (slot)
+  (getf slot :slot (car slot)))
+
+(defun slot-excluded-p (slot)
+  (or (let ((type (getf slot :type)))
+        (eq type 'position))
+      (null (slot-name slot))))
+
 (defun slots-parser-bindings (slots)
   (let ((bindings (if (boundp '*bindings*) *bindings* t)))
     (prog1 (loop :for *slots* :on (copy-list slots)
@@ -118,13 +126,7 @@
                            (*inlines* nil))
         (mappend #'identity options)
       (delete-from-plistf args :constructor :include :endian)
-      (labels ((slot-name (slot)
-                 (getf slot :slot (car slot)))
-               (excluded-slot-p (slot)
-                 (or (let ((type (getf slot :type)))
-                       (eq type 'position))
-                     (null (slot-name slot))))
-               (slots (&optional (slots (cons (car (ensure-list include)) slots)))
+      (labels ((slots (&optional (slots (cons (car (ensure-list include)) slots)))
                  (loop :for slot :in slots
                        :when (symbolp slot)
                          :nconc (slots (get slot 'slots))
@@ -146,7 +148,7 @@
                                        :collect (list key value)))
                      . ,(loop :for slot :in slots
                               :for (name initform . options) := slot
-                              :unless (excluded-slot-p slot)
+                              :unless (slot-excluded-p slot)
                                 :collect (list* (getf slot :slot name) initform (nconc (remove-from-plist options :type) (list :type (lisp-type (getf options :type))))))))
                ,(with-gensyms (var args)
                   `(defmethod lisp-type-expr ((,var (eql ',name)) &rest ,args)
@@ -155,7 +157,7 @@
                (setf (get ',name 'slots) ',(cons (car include) slots)))
              ,(with-gensyms (next)
                 (let* ((all-slots (delete-if-not #'slot-name (slots)))
-                       (defstruct-slots (remove-if #'excluded-slot-p all-slots))
+                       (defstruct-slots (remove-if #'slot-excluded-p all-slots))
                        (ancestor-slots (when include (delete-if-not #'slot-name (slots (list (car include)))))))
                   `(progn
                      (defparser ,constructor ,(mapcar #'car all-slots)
@@ -181,21 +183,22 @@
                      (defparser ,name ,lambda-list
                        (,derive #',constructor . ,(parsonic::lambda-list-arguments lambda-list))))))))))))
 
-(define-condition deserialize-error ()
+(define-condition deserialize-error (parse-error)
   ((position :initarg :position :reader deserialize-error-position))
   (:report (lambda (condition stream)
              (format stream "Parse error at position ~A" (deserialize-error-position condition)))))
 
-(defmacro defbinio ((name &rest lambda-list) type)
-  (let ((reader (symbolicate '#:read- name)))
-    (with-gensyms (input result error)
-      `(defun ,reader (,input . ,lambda-list)
-         (multiple-value-bind (,result ,error)
-             (funcall
-              (parser-lambda (,input)
-                (declare (type ,(case type (stream 'parsonic::binary-input-stream) (t type)) ,input))
-                (,name . ,(parsonic::lambda-list-arguments lambda-list)))
-              ,input)
-           (if ,error
-               (error 'deserialize-error :position ,error)
-               ,result))))))
+(defmacro defbinio (type iotype)
+  (destructuring-bind (name &rest lambda-list) (ensure-list type)
+    (let ((reader (symbolicate '#:read- name)))
+      (with-gensyms (input result error)
+        `(defun ,reader (,input . ,lambda-list)
+           (multiple-value-bind (,result ,error)
+               (funcall
+                (parser-lambda (,input)
+                  (declare (type ,(case iotype (stream 'parsonic::binary-input-stream) (t iotype)) ,input))
+                  (,name . ,(parsonic::lambda-list-arguments lambda-list)))
+                ,input)
+             (if ,error
+                 (error 'deserialize-error :position ,error)
+                 ,result)))))))
