@@ -5,6 +5,7 @@
 (defvar *slots*)
 (defvar *bindings*)
 (defvar *inlines*)
+(defvar *place*)
 
 (defun finish-partial-byte ()
   (unless (integerp *offset*)
@@ -26,7 +27,7 @@
   (apply #'lisp-type-expr (ensure-list type)))
 
 (defun slot-name (slot)
-  (getf slot :slot (car slot)))
+  (car slot))
 
 (defun slot-excluded-p (slot)
   (or (let ((type (getf slot :type)))
@@ -37,7 +38,8 @@
   (let ((bindings (if (boundp '*bindings*) *bindings* t)))
     (prog1 (loop :for *slots* :on (copy-list slots)
                  :for ((name nil . options)) := *slots*
-                 :for *bindings* := (let* ((bindings (when (consp bindings) (remove-if-not #'symbol-plist bindings :key #'car)))
+                 :for *bindings* := (let* ((*place* (curry *place* name))
+                                           (bindings (when (consp bindings) (remove-if-not #'symbol-plist bindings :key #'car)))
                                            (*bindings* (append bindings *bindings*))
                                            (type (expand-type (getf options :type))))
                                       (nconc (nthcdr (length bindings) *bindings*) (list `(,name ,type))))
@@ -136,8 +138,7 @@
               (parser (symbolicate name '#:/parse))
               (constructor (symbolicate name '#:/construct))
               (derive (symbolicate name '#:/derive))
-              (defstruct-constructor constructor)
-              (bindings (slots-parser-bindings slots)))
+              (defstruct-constructor constructor))
           `(progn
              (eval-when (:compile-toplevel :load-toplevel :execute)
                ,(unless typep
@@ -155,10 +156,17 @@
                      (declare (ignore ,var ,args))
                      ',type))
                (setf (get ',name 'slots) ',(cons (car include) slots)))
-             ,(with-gensyms (next)
+             ,(with-gensyms (next self result)
                 (let* ((all-slots (delete-if-not #'slot-name (slots)))
                        (defstruct-slots (remove-if #'slot-excluded-p all-slots))
-                       (ancestor-slots (when include (delete-if-not #'slot-name (slots (list (car include)))))))
+                       (ancestor-slots (when include (delete-if-not #'slot-name (slots (list (car include))))))
+                       (bindings (let ((*place* (lambda (slot)
+                                                  (lambda (value)
+                                                    (once-only (value)
+                                                      `(if ,self
+                                                           (setf ,slot ,value)
+                                                           (setf (,(symbolicate name '- slot) ,self) ,value)))))))
+                                   (slots-parser-bindings slots))))
                   `(progn
                      (defparser ,constructor ,(mapcar #'car all-slots)
                        (constantly
@@ -169,8 +177,9 @@
                                                   :for (name) := slot
                                                   :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot))))))))
                      (defparser ,parser (,next ,@(mapcar #'car ancestor-slots) ,@lambda-list)
-                       (let* ,bindings
-                         (parser-call ,next . ,(mapcar #'car all-slots))))
+                       (let* ((,self (constantly nil)) . ,bindings)
+                         (for ((,result (parser-call ,next . ,(mapcar #'car all-slots))))
+                           (setf ,self ,result))))
                      (defparser ,derive (,next . ,lambda-list)
                        ,(if include
                             `(,(let ((*package* (symbol-package (car include))))
