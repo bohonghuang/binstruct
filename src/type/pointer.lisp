@@ -4,23 +4,10 @@
   (destructuring-bind () args
     'non-negative-fixnum))
 
-(defparser skip (n)
-  (let ((position (position)))
-    (declare (type non-negative-fixnum position))
-    (position (+ position n))))
-
-(defmethod lisp-type-expr ((name (eql 'skip)) &rest args)
-  (destructuring-bind () args
-    'null))
-
 (defmethod expand-type-expr ((name (eql 'peek)) &rest args)
   (destructuring-bind (type &optional position) args
     (if position
-        (with-gensyms (current)
-          `(peek
-            (let ((,current (position)))
-              (skip (the non-negative-fixnum (- ,position ,current)))
-              ,(expand-type-unit type))))
+        `(peek (progn (position ,position) ,(expand-type-unit type)))
         `(peek ,(expand-type type)))))
 
 (defmethod lisp-type-expr ((name (eql 'peek)) &rest args)

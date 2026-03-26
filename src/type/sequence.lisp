@@ -6,6 +6,11 @@
     (unless (eq type 'null)
       (coerce list type))))
 
+(defparser skip (n)
+  (let ((position (position)))
+    (declare (type non-negative-fixnum position))
+    (position (+ position n))))
+
 (defun expand-array-type (name &rest args)
   (finish-partial-byte)
   (destructuring-bind (type (length)) args
