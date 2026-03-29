@@ -1,44 +1,17 @@
 (in-package #:binstruct)
 
-(defmethod lisp-type-expr ((name (eql 'position)) &rest args)
-  (destructuring-bind () args
-    'non-negative-fixnum))
+(defun pointer-base (name)
+  (or (assoc name *positions*) (car (push (cons name nil) *positions*))))
 
-(defgeneric lisp-type-expr-default-value (name &rest args)
-  (:method (name &rest args)
-    (declare (ignore args))
-    (let ((class (find-class name)))
-      (check-type class class)
-      (allocate-instance class)))
-  (:method ((name (eql 't)) &rest args)
-    (declare (ignore args))
-    nil)
-  (:method ((name (eql 'boolean)) &rest args)
-    (declare (ignore args))
-    nil)
-  (:method ((name (eql 'unsigned-byte)) &rest args)
-    (declare (ignore args))
-    0)
-  (:method ((name (eql 'signed-byte)) &rest args)
-    (declare (ignore args))
-    0)
-  (:method ((name (eql 'cons)) &rest args)
-    (destructuring-bind (car cdr) args
-      (cons (lisp-type-default-value car) (lisp-type-default-value cdr))))
-  (:method ((name (eql 'simple-base-string)) &rest args)
-    (destructuring-bind (length) args
-      (make-array (or length 0) :element-type 'base-char)))
-  (:method ((name (eql 'simple-array)) &rest args)
-    (destructuring-bind (element-type (length)) args
-      (make-array (case length (* 0) (t length)) :element-type element-type)))
-  (:method ((name (eql 'array)) &rest args)
-    (apply #'lisp-type-expr-default-value 'simple-array args)))
+(defun pointer-base-position (name &optional callback)
+  (let* ((base (pointer-base name))
+         (position (cdr base)))
+    (etypecase position
+      (non-negative-fixnum position)
+      (list (when callback (setf (cdr base) (cons callback position))) nil))))
 
-(defun lisp-type-default-value (type)
-  (apply #'lisp-type-expr-default-value (ensure-list type)))
-
-(defun type-default-value (type)
-  (lisp-type-default-value (lisp-type type)))
+(defun global-position-p (name)
+  (and (symbolp name) (eql (position #\$ (symbol-name name)) 0)))
 
 (defmethod expand-type-expr ((name (eql 'peek)) &rest args)
   (destructuring-bind (type &optional position) args
@@ -50,6 +23,24 @@
   (destructuring-bind (type &optional position) args
     (declare (ignore position))
     (lisp-type type)))
+
+(defmethod expand-type-expr ((name (eql 'position)) &rest args)
+  (destructuring-bind (&aux (name (car (first *slots*)))) args
+    (if (global-position-p name)
+        (with-gensyms (position pending)
+          `(peek
+            (let* ((,position (position))
+                   (,pending (constantly (shiftf (cdr (pointer-base ',name)) ,position))))
+              (rep ((lambda ()
+                      (if (consp ,pending)
+                          (funcall (the function (pop ,pending)) ,position)
+                          (parser (or))))))
+              (constantly ,position))))
+        '(position))))
+
+(defmethod lisp-type-expr ((name (eql 'position)) &rest args)
+  (destructuring-bind () args
+    'non-negative-fixnum))
 
 (defmethod expand-type-expr ((name (eql 'pointer)) &rest args)
   (destructuring-bind (data-type pointer-type &optional (base 0)) args
@@ -63,41 +54,37 @@
     (declare (ignore args))
     (lisp-type data-type)))
 
-(defun pointer-base (name)
-  (declare (ignore name))
-  nil)
-
-(defun (setf pointer-base) (value name)
-  (declare (ignore name))
-  value)
-
 (defmethod expand-type-expr ((name (eql 'pointer-1)) &rest args)
   (destructuring-bind (data-type base &aux (slot (first *slots*))) args
-    (if (or (constantp base) (not (symbolp base)) (member base *bindings* :key #'car))
-        (expand-type `(peek ,data-type (+ ,base ,(car slot))))
+    (if (global-position-p base)
         (with-gensyms (offset)
           (setf (car (find (car slot) *bindings* :from-end t :key #'car)) offset)
-          (nconcf (cdr *slots*) (list `(nil nil :type (pointer-2 ,data-type ,base ,offset ,(first slot)))))
-          `(constantly ,(type-default-value (lisp-type (cons name args))))))))
-
-(defmethod lisp-type-expr ((name (eql 'pointer-1)) &rest args)
-  (destructuring-bind (data-type &rest args) args
-    (declare (ignore args))
-    (lisp-type data-type)))
+          (nconcf (cdr *slots*) (list `(nil nil :type (pointer-2 ,data-type ,base ,offset
+                                                                 ,(let ((place *place*))
+                                                                    (lambda (&aux (place (funcall place)))
+                                                                      (lambda (value)
+                                                                        `(progn
+                                                                           (setf ,(car slot) ,value)
+                                                                           ,(funcall place value)))))))))
+          `(constantly ,(type-default-value data-type)))
+        (expand-type `(peek ,data-type (+ ,base ,(car slot)))))))
 
 (defmethod expand-type-expr ((name (eql 'pointer-2)) &rest args)
-  (destructuring-bind (data-type base offset self) args
-    (with-gensyms (var)
-      `((lambda (,var ,offset)
-          (if ,var
-              (parser (peek (for ((nil (position (+ ,var ,offset)))
-                                  (,var ,(expand-type-unit data-type)))
-                              (setf ,self ,var))))
-              (parser (constantly (assert nil)))))
-        (constantly (pointer-base ',base))
+  (destructuring-bind (data-type base offset place) args
+    (with-gensyms (result thunk position)
+      `((lambda (,offset)
+          (funcall
+           (lambda (,thunk)
+             (if-let ((,position (pointer-base-position ',base ,thunk)))
+               (funcall ,thunk ,position)
+               (parser (constantly nil))))
+           (lambda (,position)
+             (declare (type non-negative-fixnum ,position))
+             (parser
+              (cut
+               ((lambda (,result)
+                  ,(funcall (funcall place) result)
+                  (parser (constantly ,result)))
+                ,(let ((*place* place))
+                   (expand-type-unit `(peek ,data-type (+ ,position ,offset))))))))))
         (constantly ,offset)))))
-
-(defmethod lisp-type-expr ((name (eql 'pointer-2)) &rest args)
-  (destructuring-bind (data-type &rest args) args
-    (declare (ignore args))
-    (lisp-type data-type)))

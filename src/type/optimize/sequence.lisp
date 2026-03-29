@@ -31,13 +31,14 @@
                parsonic::+input-eof+))))))
 
 (defmethod parsonic::expand-expr/compile :around ((op (eql 'sequence)) &rest args)
-  (destructuring-bind (element length (quote (array-type array-element-type (array-length)))) args
-    (declare (ignore element array-length))
+  (destructuring-bind (element-type length (quote (array-type array-element-type (array-length)))) args
+    (declare (ignore array-length))
     (assert (eq quote 'quote))
-    (if (equal array-element-type '(unsigned-byte 8))
+    (if (equal element-type '(unsigned-byte-8))
         (let ((var (ecase array-type
                      (simple-array +input-type-simple-array-unsigned-byte-8+)
                      (array +input-type-array-unsigned-byte-8+))))
+          (assert (equal array-element-type '(unsigned-byte 8)))
           (with-gensyms (result)
             (parsonic::expand/compile
              `(let ((,result (constantly (let ((,var ,length)) ,(input-read-sequence/compile parsonic::*codegen-input* var)))))

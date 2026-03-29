@@ -10,9 +10,9 @@
                 (satisfies (lambda (byte) (= byte terminator))))))
     (bytes-base-string list)))
 
-(deftype terminated-base-string (&rest args)
+(defmethod lisp-type-expr ((name (eql 'terminated-base-string)) &rest args)
   (declare (ignore args))
-  '(simple-array base-char (*)))
+  'simple-base-string)
 
 (defparser simple-base-string (size)
   (for ((list (rep (unsigned-byte-8) size size)))
