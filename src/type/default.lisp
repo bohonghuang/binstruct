@@ -1,10 +1,11 @@
 (in-package #:binstruct)
 
 (defmacro class-type-default-value (name)
-  (if-let ((class (find-class name nil)))
-    `(load-time-value (make-instance ,class))
-    (if-let ((constructor (find-symbol (format nil "~A-~A" 'make name) (symbol-package name))))
-      `(,constructor)
+  (if-let ((constructor (let ((symbol (find-symbol (format nil "~A-~A" '#:make name) (symbol-package name))))
+                          (when (fboundp symbol) symbol))))
+    `(,constructor)
+    (if-let ((class (find-class name nil)))
+      `(load-time-value (make-instance ,class))
       `(load-time-value (make-instance ',name)))))
 
 (defgeneric lisp-type-expr-default-value (name &rest args)
