@@ -1,47 +1,28 @@
 (in-package #:binstruct)
 
-(defmacro class-type-default-value (name)
-  (if-let ((constructor (let ((symbol (find-symbol (format nil "~A-~A" '#:make name) (symbol-package name))))
-                          (when (fboundp symbol) symbol))))
-    `(,constructor)
-    (if-let ((class (find-class name nil)))
-      `(load-time-value (make-instance ,class))
-      `(load-time-value (make-instance ',name)))))
-
-(defgeneric lisp-type-expr-default-value (name &rest args)
-  (:method (name &rest args)
-    (declare (ignore args))
-    `(class-type-default-value ,name))
-  (:method ((name (eql 't)) &rest args)
-    (declare (ignore args))
-    nil)
-  (:method ((name (eql 'boolean)) &rest args)
-    (declare (ignore args))
-    nil)
-  (:method ((name (eql 'unsigned-byte)) &rest args)
-    (declare (ignore args))
-    0)
-  (:method ((name (eql 'signed-byte)) &rest args)
-    (declare (ignore args))
-    0)
-  (:method ((name (eql 'cons)) &rest args)
-    (destructuring-bind (car cdr) args
-      (cons (lisp-type-default-value car) (lisp-type-default-value cdr))))
-  (:method ((name (eql 'simple-base-string)) &rest args)
-    (destructuring-bind (&optional length) args
-      (make-array (or length 0) :element-type 'base-char)))
-  (:method ((name (eql 'simple-array)) &rest args)
-    (destructuring-bind (element-type (length)) args
-      (make-array (case length (* 0) (t length)) :element-type element-type)))
-  (:method ((name (eql 'array)) &rest args)
-    (apply #'lisp-type-expr-default-value 'simple-array args))
-  (:method ((name (eql 'or)) &rest args)
-    (destructuring-bind (type &rest types) args
-      (declare (ignore types))
-      (lisp-type-default-value type))))
-
 (defun lisp-type-default-value (type)
-  (apply #'lisp-type-expr-default-value (ensure-list type)))
+  (destructuring-case (ensure-list type)
+    ((or &rest args)
+     (lisp-type-default-value (first args)))
+    ((t &rest args)
+     (eswitch (type :test #'subtypep)
+       ('integer 0)
+       ('single-float 0s0)
+       ('double-float 0d0)
+       ('boolean nil)
+       ('cons
+        (destructuring-bind (car cdr) args
+          `(load-time-value (cons ,(lisp-type-default-value car) ,(lisp-type-default-value cdr)))))
+       ('base-string (coerce "" 'simple-base-string))
+       ('string "")
+       ('vector
+        (destructuring-bind (element-type (length)) args
+          (make-array (case length (* 0) (t length)) :element-type element-type)))
+       ('structure-object
+        (let ((constructor (find-symbol (format nil "~A-~A" '#:make type) (symbol-package type))))
+          (assert (fboundp constructor))
+          `(load-time-value (,constructor))))
+       ('t nil)))))
 
 (defun type-default-value (type)
   (lisp-type-default-value (lisp-type type)))
