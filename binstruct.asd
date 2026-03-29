@@ -17,13 +17,13 @@
                              (:file "integer")
                              (:file "boolean" :depends-on ("integer"))
                              (:file "pointer" :depends-on ("integer" "default"))
-                             (:file "sequence" :depends-on ("default"))
+                             (:file "array" :depends-on ("default"))
                              (:file "string")
                              (:file "custom")
                              (:file "list")
                              (:module "optimize"
-                              :components ((:file "sequence"))
-                              :depends-on ("sequence")))
+                              :components ((:file "array"))
+                              :depends-on ("array")))
                 :depends-on ("package" "interface")))
   :in-order-to ((test-op (test-op #:binstruct/test))))
 
