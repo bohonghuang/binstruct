@@ -1,5 +1,5 @@
 (defpackage binstruct.test
-  (:import-from #:alexandria #:with-gensyms #:once-only)
+  (:import-from #:alexandria #:with-gensyms #:once-only #:rcurry)
   (:use #:cl #:parachute #:parsonic #:binstruct))
 
 (in-package #:binstruct.test)
@@ -16,8 +16,10 @@
                  :for bytes := (make-symbol (format nil "~A" input))
                  :collect (once-only (expected)
                             `(let ((,bytes (coerce ,input '(simple-array (unsigned-byte 8) (*)))))
-                               (is equalp ,expected (parser-run ,eval ,bytes))
-                               (is equalp ,expected (funcall ,compiled ,bytes)))))))))
+                               (let ((binstruct::*positions* nil))
+                                 (is equalp ,expected (parser-run ,eval ,bytes)))
+                               (let ((binstruct::*positions* nil))
+                                 (is equalp ,expected (funcall ,compiled ,bytes))))))))))
 
 (defbinstruct basic-struct ()
   (a 0 :type (unsigned-byte 8))
@@ -302,3 +304,120 @@
       (make-parametric-type-struct
        :body (make-basic-struct :a 255 :b -1 :c 255 :d -1)
        :size 8))))
+
+(defbinstruct nonlocal-pointer-struct-1 ()
+  (array (make-array 0 :element-type '(unsigned-byte 8)) :type (pointer (simple-array (unsigned-byte 8) (length)) (unsigned-byte 8) $nonlocal-base))
+  (length 0 :type (unsigned-byte 8)))
+
+(defbinstruct nonlocal-position-struct-1 ()
+  (length 0 :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'nonlocal-pointer-struct-1) :type (simple-array nonlocal-pointer-struct-1 (length)))
+  ($nonlocal-base 0 :type position))
+
+(defbinstruct nonlocal-pointer-struct-2 ()
+  (length 0 :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'simple-base-string) :type (simple-array (pointer terminated-base-string (unsigned-byte 8) $nonlocal-base) (length))))
+
+(defbinstruct nonlocal-position-struct-2 ()
+  (length 0 :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'nonlocal-pointer-struct-2) :type (simple-array nonlocal-pointer-struct-2 (length)))
+  ($nonlocal-base 0 :type position))
+
+(defbinstruct nonlocal-pointer-struct-3 ()
+  (value 0 :type (pointer (pointer (signed-byte 8) (unsigned-byte 8) $nonlocal-base-2) (unsigned-byte 8) $nonlocal-base-1)))
+
+(defbinstruct nonlocal-position-struct-3-1 ()
+  (length 0 :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'nonlocal-pointer-struct-3) :type (simple-array nonlocal-pointer-struct-3 (length)))
+  ($nonlocal-base-1 0 :type position)
+  ($nonlocal-base-2 0 :type position))
+
+(defbinstruct nonlocal-position-struct-3-2 ()
+  (length 0 :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'nonlocal-pointer-struct-3) :type (simple-array nonlocal-pointer-struct-3 (length)))
+  ($nonlocal-base-2 0 :type position)
+  ($nonlocal-base-1 0 :type position))
+
+(defbinstruct nonlocal-pointer-struct-4 ()
+  (length 0 :type (unsigned-byte 8))
+  (array (make-array 0 :element-type '(unsigned-byte 8)) :type (simple-array (pointer (pointer (unsigned-byte 8) (unsigned-byte 8) $nonlocal-base-2) (unsigned-byte 8) $nonlocal-base-1) (length))))
+
+(defbinstruct nonlocal-position-struct-4-1 ()
+  (length 0 :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'nonlocal-pointer-struct-4) :type (simple-array nonlocal-pointer-struct-4 (length)))
+  ($nonlocal-base-1 0 :type position)
+  ($nonlocal-base-2 0 :type position))
+
+(defbinstruct nonlocal-position-struct-4-2 ()
+  (length 0 :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'nonlocal-pointer-struct-4) :type (simple-array nonlocal-pointer-struct-4 (length)))
+  ($nonlocal-base-2 0 :type position)
+  ($nonlocal-base-1 0 :type position))
+
+(define-test nonlocal-pointer-struct :parent suite
+  (is-parse-equal (nonlocal-position-struct-1)
+    (#(#x03 #x00 #x03 #x01 #x03 #x02 #x03
+       #x01 #x02 #x03 #x04 #x05)
+      (make-nonlocal-position-struct-1
+       :length 3
+       :array (make-array 3 :element-type 'nonlocal-pointer-struct-1
+                            :initial-contents (list (make-nonlocal-pointer-struct-1
+                                                     :array (make-array 3 :element-type '(unsigned-byte 8) :initial-contents '(1 2 3))
+                                                     :length 3)
+                                                    (make-nonlocal-pointer-struct-1
+                                                     :array (make-array 3 :element-type '(unsigned-byte 8) :initial-contents '(2 3 4))
+                                                     :length 3)
+                                                    (make-nonlocal-pointer-struct-1
+                                                     :array (make-array 3 :element-type '(unsigned-byte 8) :initial-contents '(3 4 5))
+                                                     :length 3))))))
+  (is-parse-equal (nonlocal-position-struct-2)
+    (#(#x03 #x03 #x00 #x04 #x08 #x03 #x01 #x05 #x09 #x03 #x02 #x06 #x0A
+       #x61 #x62 #x63 #x00 #x64 #x65 #x66 #x00 #x67 #x68 #x69 #x00)
+      (make-nonlocal-position-struct-2
+       :length 3
+       :array (make-array 3 :element-type 'nonlocal-pointer-struct-2
+                            :initial-contents (list (make-nonlocal-pointer-struct-2
+                                                     :array (make-array 3 :element-type 'simple-base-string
+                                                                          :initial-contents (mapcar (rcurry #'coerce 'simple-base-string) '("abc" "def" "ghi")))
+                                                     :length 3)
+                                                    (make-nonlocal-pointer-struct-2
+                                                     :array (make-array 3 :element-type 'simple-base-string
+                                                                          :initial-contents (mapcar (rcurry #'coerce 'simple-base-string) '("bc" "ef" "hi")))
+                                                     :length 3)
+                                                    (make-nonlocal-pointer-struct-2
+                                                     :array (make-array 3 :element-type 'simple-base-string
+                                                                          :initial-contents (mapcar (rcurry #'coerce 'simple-base-string) '("c" "f" "i")))
+                                                     :length 3))))))
+  (is-parse-equal (nonlocal-position-struct-3-1)
+    (#1=#(#x03 #x00 #x01 #x02 #x03 #x04 #x05 #x06 #x07 #x08)
+        (make-nonlocal-position-struct-3-1
+         . #2=(:length 3
+               :array (make-array 3 :element-type 'nonlocal-pointer-struct-3
+                                    :initial-contents (list (make-nonlocal-pointer-struct-3
+                                                             :value 6)
+                                                            (make-nonlocal-pointer-struct-3
+                                                             :value 7)
+                                                            (make-nonlocal-pointer-struct-3
+                                                             :value 8)))))))
+  (is-parse-equal (nonlocal-position-struct-3-2)
+    (#1# (make-nonlocal-position-struct-3-2 . #2#)))
+  (is-parse-equal (nonlocal-position-struct-4-1)
+    (#3=#(#x03 #x03 #x00 #x01 #x02 #x03 #x01 #x02 #x03 #x03 #x02 #x03 #x04
+          #x05 #x05 #x06 #x06 #x07 #x01 #x02 #x03)
+        (make-nonlocal-position-struct-4-1
+         . #4=(:length 3
+               :array (make-array 3 :element-type 'nonlocal-pointer-struct-4
+                                    :initial-contents (list (make-nonlocal-pointer-struct-4
+                                                             :length 3
+                                                             :array (make-array 3 :element-type '(unsigned-byte 8)
+                                                                                  :initial-contents '(1 1 2)))
+                                                            (make-nonlocal-pointer-struct-4
+                                                             :length 3
+                                                             :array (make-array 3 :element-type '(unsigned-byte 8)
+                                                                                  :initial-contents '(1 2 2)))
+                                                            (make-nonlocal-pointer-struct-4
+                                                             :length 3
+                                                             :array (make-array 3 :element-type '(unsigned-byte 8)
+                                                                                  :initial-contents '(2 2 3)))))))))
+  (is-parse-equal (nonlocal-position-struct-4-2)
+    (#3# (make-nonlocal-position-struct-4-2 . #4#))))
