@@ -60,7 +60,7 @@
   (d (make-bitfield-struct) :type (bitfield-struct))
   (e 0 :type (signed-byte 9)))
 
-(define-test padded-bitfield-struct :parent suite
+(define-test padded-bitfield :parent suite
   (is-parse-equal (padded-bitfield-struct)
     (#(#b00001011 #b10011101 #b10010001 #b00000001 #b0000000 #b11111111 #b00000000 #b00000001)
       (make-padded-bitfield-struct :a t :b 1 :c 2 :d (make-bitfield-struct :a t :b 0 :c 3 :d 9 :e -111 :f -32768 :g 127) :e -256))))
@@ -90,6 +90,24 @@
        :length 4 
        :data (make-array 4 :element-type '(unsigned-byte 8) 
                            :initial-contents '(1 2 3 4))))))
+
+(defbinstruct sentinel-terminated-array-element ()
+  (nil #x12 :type (magic (unsigned-byte 8))))
+
+(defbinstruct sentinel-terminated-array-struct ()
+  (data (make-array 0 :element-type 'sentinel-terminated-array-element) :type (simple-array (sentinel-terminated-array-element) (*)))
+  (end 0 :type (unsigned-byte 8)))
+
+(define-test sentinel-terminated-array :parent suite
+  (is-parse-equal (sentinel-terminated-array-struct)
+    (#(#x12 #x12 #x12 #x00)
+      (make-sentinel-terminated-array-struct
+       :data (make-array 3
+                         :element-type 'sentinel-terminated-array-element
+                         :initial-contents (list (make-sentinel-terminated-array-element)
+                                                 (make-sentinel-terminated-array-element)
+                                                 (make-sentinel-terminated-array-element)))
+       :end 0))))
 
 (defbinenum (enum-struct-enum (:type (unsigned-byte 8))) ()
   a (b 1) c)
@@ -161,7 +179,7 @@
                                                           (simple-array (signed-byte 8) ((+ n (- 2 a) b)))
                                                           (lambda (array) (assert (= p 8)) array))))
 
-(define-test derived-struct :parent suite
+(define-test subtype :parent suite
   (is-parse-equal (derived-struct)
     (#(#x01 #xFF #x02 #x01 #x00 #x00 #x00 #x80 #x7F #xFF #xFF)
       (make-derived-struct :a 1 :b -1 :c 258 :d -2147483648 :e (coerce #(127) '(simple-array (unsigned-byte 8) (*))) :f -1)))
@@ -204,7 +222,7 @@
                                                                (typed-struct-string))
                                                            (length))))
 
-(define-test or-struct :parent suite
+(define-test or-type :parent suite
   (is-parse-equal (or-struct)
     (#(4
        #x00
@@ -241,7 +259,7 @@
   (c 0 :type (list (unsigned-byte 7) (unsigned-byte 3)))
   (d 0 :type (unsigned-byte 5)))
 
-(define-test list-struct :parent suite
+(define-test cons+list :parent suite
   (is-parse-equal (list-struct)
     (#(#b11110000 #b10000001 #b10000111)
       (make-list-struct :a (cons 0 15) :b 1 :c (list 64 7) :d 16))))
@@ -250,7 +268,7 @@
   (nil 0 :type (simple-array (unsigned-byte 8) (2)))
   (a 0 :type (unsigned-byte 8)))
 
-(define-test skip-struct :parent suite
+(define-test skip :parent suite
   (is-parse-equal (skip-struct)
     (#(0 0 12) (make-skip-struct :a 12))))
 
@@ -260,7 +278,7 @@
   (end 0 :type position)
   (size 0 :type (custom null (constantly (- end start)))))
 
-(define-test parametric-type-struct :parent suite
+(define-test parametric-type :parent suite
   (is-parse-equal (parametric-type-struct (unsigned-byte 8))
     (#(#x2A)
       (make-parametric-type-struct :body 42 :size 1)))
@@ -354,7 +372,7 @@
   ($nonlocal-base-2 0 :type position)
   ($nonlocal-base-1 0 :type position))
 
-(define-test nonlocal-pointer-struct :parent suite
+(define-test nonlocal-pointer :parent suite
   (is-parse-equal (nonlocal-position-struct-1)
     (#(#x03 #x00 #x03 #x01 #x03 #x02 #x03
        #x01 #x02 #x03 #x04 #x05)
