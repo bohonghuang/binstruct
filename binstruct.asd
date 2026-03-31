@@ -19,7 +19,7 @@
                              (:file "pointer" :depends-on ("integer" "default"))
                              (:file "array" :depends-on ("default"))
                              (:file "string")
-                             (:file "custom")
+                             (:file "map")
                              (:file "list")
                              (:module "optimize"
                               :components ((:file "array"))

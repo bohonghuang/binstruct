@@ -175,7 +175,7 @@
 
 (defbinstruct (derived-derived-struct (:include (derived-struct (1- n)))) (n)
   (g 0 :type (unsigned-byte 16))
-  (h (make-array 0 :element-type '(signed-byte 8)) :type (custom
+  (h (make-array 0 :element-type '(signed-byte 8)) :type (map
                                                           (simple-array (signed-byte 8) ((+ n (- 2 a) b)))
                                                           (lambda (array) (assert (= p 8)) array))))
 
@@ -276,13 +276,13 @@
   (start 0 :type position)
   (body nil :type (inline type))
   (end 0 :type position)
-  (size 0 :type (custom null (constantly (- end start)))))
+  (size 0 :type (map null (constantly (- end start)))))
 
 (define-test parametric-type :parent suite
   (is-parse-equal (parametric-type-struct (unsigned-byte 8))
     (#(#x2A)
       (make-parametric-type-struct :body 42 :size 1)))
-  (is-parse-equal (parametric-type-struct (custom (unsigned-byte 8) #'1+ #'-))
+  (is-parse-equal (parametric-type-struct (map (unsigned-byte 8) #'1+ #'-))
     (#(#x2A)
       (make-parametric-type-struct :body 43 :size 1)))
   (is-parse-equal (parametric-type-struct (magic (unsigned-byte 8) #x2A))

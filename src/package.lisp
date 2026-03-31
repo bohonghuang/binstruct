@@ -6,7 +6,6 @@
    #:defbinio
    #:magic
    #:pointer
-   #:terminated-base-string
-   #:custom))
+   #:terminated-base-string))
 
 (in-package #:binstruct)
