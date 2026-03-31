@@ -4,7 +4,6 @@
    #:defbinenum
    #:defbinstruct
    #:defbinio
-   #:pointer
-   #:terminated-base-string))
+   #:pointer))
 
 (in-package #:binstruct)

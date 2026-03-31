@@ -18,7 +18,7 @@
                              (:file "boolean" :depends-on ("integer"))
                              (:file "pointer" :depends-on ("integer" "default"))
                              (:file "array" :depends-on ("default"))
-                             (:file "string")
+                             (:file "string" :depends-on ("integer"))
                              (:file "map")
                              (:file "list")
                              (:module "optimize"

@@ -68,7 +68,7 @@
 (defbinstruct base-string-struct ()
   (length 0 :type (unsigned-byte 32))
   (fixed-length "" :type (simple-base-string length))
-  (zero-terminated "" :type terminated-base-string))
+  (zero-terminated "" :type simple-base-string))
 
 (define-test base-string :parent suite
   (is-parse-equal (base-string-struct)
@@ -211,7 +211,7 @@
   (value 0 :type (signed-byte 32)))
 
 (defbinstruct (typed-struct-string (:include (typed-struct #x03))) ()
-  (value 0 :type terminated-base-string))
+  (value 0 :type simple-base-string))
 
 (defbinstruct or-struct ()
   (length 0 :type (unsigned-byte 8))
@@ -304,7 +304,7 @@
       (make-parametric-type-struct
        :body (coerce "test" 'simple-base-string)
        :size 4)))
-  (is-parse-equal (parametric-type-struct (terminated-base-string))
+  (is-parse-equal (parametric-type-struct (simple-base-string))
     (#(#x74 #x65 #x73 #x74 #x00)
       (make-parametric-type-struct
        :body (coerce "test" 'simple-base-string)
@@ -334,7 +334,7 @@
 
 (defbinstruct nonlocal-pointer-struct-2 ()
   (length 0 :type (unsigned-byte 8))
-  (array (make-array 0 :element-type 'simple-base-string) :type (simple-array (pointer terminated-base-string (unsigned-byte 8) $nonlocal-base) (length))))
+  (array (make-array 0 :element-type 'simple-base-string) :type (simple-array (pointer simple-base-string (unsigned-byte 8) $nonlocal-base) (length))))
 
 (defbinstruct nonlocal-position-struct-2 ()
   (length 0 :type (unsigned-byte 8))
