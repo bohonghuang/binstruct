@@ -42,7 +42,7 @@
 (defbinstruct bitfield-struct ()
   (a nil :type (boolean (unsigned-byte 1)))
   (b 0 :type (unsigned-byte 1))
-  (c 3 :type (magic (unsigned-byte 2)))
+  (c 3 :type (satisfies (unsigned-byte 2)))
   (d 0 :type (unsigned-byte 4))
   (e 0 :type (signed-byte 9))
   (f 0 :type (signed-byte 16))
@@ -56,7 +56,7 @@
 (defbinstruct padded-bitfield-struct ()
   (a nil :type (boolean (unsigned-byte 1)))
   (b 0 :type (unsigned-byte 1))
-  (c 2 :type (magic (unsigned-byte 2)))
+  (c 2 :type (satisfies (unsigned-byte 2)))
   (d (make-bitfield-struct) :type (bitfield-struct))
   (e 0 :type (signed-byte 9)))
 
@@ -92,7 +92,7 @@
                            :initial-contents '(1 2 3 4))))))
 
 (defbinstruct sentinel-terminated-array-element ()
-  (nil #x12 :type (magic (unsigned-byte 8))))
+  (nil #x12 :type (satisfies (unsigned-byte 8))))
 
 (defbinstruct sentinel-terminated-array-struct ()
   (data (make-array 0 :element-type 'sentinel-terminated-array-element) :type (simple-array (sentinel-terminated-array-element) (*)))
@@ -175,9 +175,9 @@
 
 (defbinstruct (derived-derived-struct (:include (derived-struct (1- n)))) (n)
   (g 0 :type (unsigned-byte 16))
-  (h (make-array 0 :element-type '(signed-byte 8)) :type (map
+  (h (make-array 0 :element-type '(signed-byte 8)) :type (satisfies
                                                           (simple-array (signed-byte 8) ((+ n (- 2 a) b)))
-                                                          (lambda (array) (assert (= p 8)) array))))
+                                                          (lambda (array) (declare (ignore array)) (= p 8)))))
 
 (define-test subtype :parent suite
   (is-parse-equal (derived-struct)
@@ -200,7 +200,7 @@
       (#() (make-derived-empty-struct)))))
 
 (defbinstruct typed-struct (magic)
-  (nil magic :type (magic (unsigned-byte 8))))
+  (nil magic :type (satisfies (unsigned-byte 8))))
 
 (defbinstruct (typed-struct-null (:include (typed-struct #x00))) ())
 
@@ -285,7 +285,7 @@
   (is-parse-equal (parametric-type-struct (map (unsigned-byte 8) #'1+ #'-))
     (#(#x2A)
       (make-parametric-type-struct :body 43 :size 1)))
-  (is-parse-equal (parametric-type-struct (magic (unsigned-byte 8) #x2A))
+  (is-parse-equal (parametric-type-struct (satisfies (unsigned-byte 8) (alexandria:curry #'= #x2A)))
     (#(#x2A)
       (make-parametric-type-struct :body 42 :size 1)))
   (is-parse-equal (parametric-type-struct (signed-byte 16))

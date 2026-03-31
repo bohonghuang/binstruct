@@ -1,26 +1,32 @@
 (in-package #:binstruct)
 
-(defparser magic (parser expected)
+(defparser predicate (parser predicate)
   (let ((value parser))
-    (rep (or) (if (equalp value expected) 0 1))
+    (rep (or) (if (funcall predicate value) 0 1))
     (constantly value)))
 
-(defmethod expand-type-expr ((name (eql 'magic)) &rest args)
+(defmethod parsonic::expand-expr :around ((op (eql 'satisfies)) &rest args)
+  (destructuring-bind (predicate-or-parser &optional (predicate nil predicatep)) args
+    (if predicatep
+        (parsonic::expand `(predicate ,predicate-or-parser ,predicate))
+        (call-next-method))))
+
+(defmethod expand-type-expr ((name (eql 'satisfies)) &rest args)
   (destructuring-bind (type
                        &optional
-                         (expected
-                          (progn
+                         (predicate
+                          (with-gensyms (value)
                             (assert (equal (getf (first *slots*) :type) (cons name args)))
-                            (second (car *slots*)))))
+                            `(lambda (,value) (equalp ,value ,(second (car *slots*)))))))
       args
     (with-gensyms (value)
       `(let ((,value ,(expand-type type)))
-         (rep (or) (if (equalp ,value ,expected) 0 1))
+         (rep (or) (if (funcall ,predicate ,value) 0 1))
          (constantly ,value)))))
 
-(defmethod lisp-type-expr ((name (eql 'magic)) &rest args)
-  (destructuring-bind (type &optional value) args
-    (declare (ignore value))
+(defmethod lisp-type-expr ((name (eql 'satisfies)) &rest args)
+  (destructuring-bind (type &optional predicate) args
+    (declare (ignore predicate))
     (lisp-type type)))
 
 (defmethod parsonic::expand-expr ((name (eql 'ecase)) &rest args)

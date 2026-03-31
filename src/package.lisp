@@ -4,7 +4,6 @@
    #:defbinenum
    #:defbinstruct
    #:defbinio
-   #:magic
    #:pointer
    #:terminated-base-string))
 
