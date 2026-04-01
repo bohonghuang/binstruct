@@ -32,10 +32,12 @@
 (defmethod parsonic::expand-expr ((name (eql 'ecase)) &rest args)
   (destructuring-bind (object &rest clauses) args
     (parsonic::expand
-     `((lambda ()
-         (ecase ,object
-           . ,(loop :for (key type) :in clauses
-                    :collect `(,key (parser ,type)))))))))
+     (with-gensyms (keyform)
+       `((lambda (,keyform)
+           (ecase ,keyform
+             . ,(loop :for (key type) :in clauses
+                      :collect `(,key (parser ,type)))))
+         (constantly ,object))))))
 
 (defmethod lisp-type-expr ((name (eql 'ecase)) &rest args)
   (destructuring-bind (object &rest clauses) args

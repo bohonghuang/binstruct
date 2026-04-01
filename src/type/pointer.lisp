@@ -82,9 +82,10 @@
              (declare (type non-negative-fixnum ,position))
              (parser
               (cut
-               ((lambda (,result)
-                  ,(funcall (funcall place) result)
-                  (parser (constantly ,result)))
-                ,(let ((*place* place))
-                   (expand-type-unit `(peek ,data-type (+ ,position ,offset))))))))))
+               (let ((,position (constantly (progn ,position))))
+                 ((lambda (,result)
+                    ,(funcall (funcall place) result)
+                    (parser (constantly ,result)))
+                  ,(let ((*place* place))
+                     (expand-type-unit `(peek ,data-type (+ ,position ,offset)))))))))))
         (constantly ,offset)))))
