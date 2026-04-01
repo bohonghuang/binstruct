@@ -36,13 +36,13 @@
       (null (slot-name slot))))
 
 (defun slots-parser-bindings (slots &aux (bindings (if (boundp '*bindings*) *bindings* t)))
-  (prog1 (loop :for *slots* :on (copy-list slots)
-               :for ((name nil . options)) := *slots*
-               :for *bindings* := (let* ((*place* (curry *place* name))
+  (prog1 (loop :for *slots* :on (copy-tree slots)
+               :for (slot) := *slots*
+               :for *bindings* := (let* ((*place* (let ((slot slot) (place *place*)) (lambda (&rest args) (apply place (car slot) args))))
                                          (bindings (when (consp bindings) (remove-if-not #'symbol-plist bindings :key #'car)))
                                          (*bindings* (append bindings *bindings*))
-                                         (type (expand-type (getf options :type))))
-                                    (nconc (nthcdr (length bindings) *bindings*) (list `(,name ,type))))
+                                         (type (expand-type (getf slot :type))))
+                                    (nconc (nthcdr (length bindings) *bindings*) (list `(,(car slot) ,type))))
                :finally
                   (if (listp bindings)
                       (loop :for (var val) :in *bindings*

@@ -45,6 +45,7 @@
 (defmethod expand-type-expr ((name (eql 'pointer)) &rest args)
   (destructuring-bind (data-type pointer-type &optional (base 0)) args
     (let ((slot (first *slots*)))
+      (unless (car slot) (setf (car slot) (with-gensyms (pointer) pointer)))
       (nconcf (cdr *slots*) (list `(,(first slot) ,(second slot) :type (pointer-1 ,data-type ,base))))
       (setf (second slot) 0))
     (expand-type pointer-type)))
@@ -56,18 +57,20 @@
 
 (defmethod expand-type-expr ((name (eql 'pointer-1)) &rest args)
   (destructuring-bind (data-type base &aux (slot (first *slots*))) args
-    (if (global-position-p base)
-        (with-gensyms (offset)
-          (setf (car (find (car slot) *bindings* :from-end t :key #'car)) offset)
-          (nconcf (cdr *slots*) (list `(nil nil :type (pointer-2 ,data-type ,base ,offset
-                                                                 ,(let ((place *place*))
-                                                                    (lambda (&aux (place (funcall place)))
-                                                                      (lambda (value)
-                                                                        `(progn
-                                                                           (setf ,(car slot) ,value)
-                                                                           ,(funcall place value)))))))))
-          `(constantly ,(type-default-value data-type)))
-        (expand-type `(peek ,data-type (+ ,base ,(car slot)))))))
+    (prog1 (if (global-position-p base)
+               (with-gensyms (offset)
+                 (setf (car (find (car slot) *bindings* :from-end t :key #'car)) offset)
+                 (nconcf (cdr *slots*) (list `(nil nil :type (pointer-2 ,data-type ,base ,offset
+                                                                        ,(let ((place *place*))
+                                                                           (lambda (&aux (place (funcall place)))
+                                                                             (lambda (value)
+                                                                               `(progn
+                                                                                  (setf ,(car slot) ,value)
+                                                                                  ,(funcall place value)))))))))
+                 `(constantly ,(type-default-value data-type)))
+               (expand-type `(peek ,data-type (+ ,base ,(car slot)))))
+      (unless (symbol-package (car slot))
+        (nconcf (cdr *slots*) (list `(nil nil :type (inline (constantly ,(car slot))))))))))
 
 (defmethod expand-type-expr ((name (eql 'pointer-2)) &rest args)
   (destructuring-bind (data-type base offset place) args
