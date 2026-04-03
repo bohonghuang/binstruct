@@ -206,18 +206,25 @@
   (:report (lambda (condition stream)
              (format stream "Parse error at position ~A" (deserialize-error-position condition)))))
 
+(define-condition unresolved-position-error (error)
+  ((name :initarg :slot :reader unresolved-position-error-name))
+  (:report (lambda (condition stream)
+             (format stream "Unresolved position ~A" (unresolved-position-error-name condition)))))
+
 (defmacro defbinio (type iotype)
   (destructuring-bind (name &rest lambda-list) (ensure-list type)
     (let ((reader (symbolicate '#:read- name)))
-      (with-gensyms (input result error)
+      (with-gensyms (input result error position)
         `(defun ,reader (,input . ,lambda-list)
-           (multiple-value-bind (,result ,error)
-               (let ((*positions* nil))
+           (let ((*positions* nil))
+             (multiple-value-bind (,result ,error)
                  (funcall
                   (parser-lambda (,input)
                     (declare (type ,(case iotype (stream 'parsonic::binary-input-stream) (t iotype)) ,input))
                     (,name . ,(parsonic::lambda-list-arguments lambda-list)))
-                  ,input))
-             (if ,error
-                 (error 'deserialize-error :position ,error)
-                 ,result)))))))
+                  ,input)
+               (if ,error
+                   (error 'deserialize-error :position ,error)
+                   (if-let ((,position (find-if-not #'integerp *positions* :key #'cdr)))
+                     (error 'unresolved-position-error :name (car ,position))
+                     ,result)))))))))
