@@ -143,63 +143,63 @@
                          :nconc (slots (get slot 'slots))
                        :when (consp slot)
                          :collect slot)))
-        (let ((include (ensure-list include))
-              (parser (symbolicate name '#:/parse))
-              (constructor (symbolicate name '#:/construct))
-              (derive (symbolicate name '#:/derive))
-              (defstruct-constructor constructor))
-          `(progn
-             (eval-when (:compile-toplevel :load-toplevel :execute)
-               ,(unless typep
-                  `(defstruct (,name
-                               (:constructor ,defstruct-constructor)
-                               ,@(when include `((:include ,(car include))))
-                               ,@(loop :for (key value) :on args :by #'cddr
-                                       :collect (list key value)))
-                     . ,(loop :for slot :in slots
-                              :for (name initform . options) := slot
-                              :unless (slot-excluded-p slot)
+        (with-gensyms (next self null result)
+          (let* ((include (ensure-list include))
+                 (parser (symbolicate name '#:/parse))
+                 (defstruct-constructor constructor)
+                 (constructor (symbolicate name '#:/construct))
+                 (derive (symbolicate name '#:/derive))
+                 (all-slots (delete-duplicates (delete-if-not #'slot-name (slots)) :key #'car))
+                 (all-defstruct-slots (remove-if #'slot-excluded-p all-slots))
+                 (defstruct-slots (delete-duplicates (delete-if #'slot-excluded-p (copy-list slots)) :key #'car))
+                 (ancestor-slots (when include (delete-duplicates (delete-if-not #'slot-name (slots (list (car include)))) :key #'car)))
+                 (bindings (let ((*place* (lambda (slot)
+                                            (lambda (value)
+                                              (once-only (value)
+                                                `(if (eq ,self ',null)
+                                                     (setf ,slot ,value)
+                                                     (setf (,(symbolicate name '- slot) ,self) ,value)))))))
+                             (slots-parser-bindings slots))))
+            `(progn
+               (eval-when (:compile-toplevel :load-toplevel :execute)
+                 ,(unless typep
+                    `(defstruct (,name
+                                 (:constructor ,defstruct-constructor)
+                                 ,@(when include `((:include ,(car include))))
+                                 ,@(loop :for (key value) :on args :by #'cddr
+                                         :collect (list key value)))
+                       . ,(loop :for slot :in defstruct-slots
+                                :for (name initform . options) := slot
                                 :collect (list* (getf slot :slot name) initform (nconc (remove-from-plist options :type) (list :type (lisp-type (getf options :type))))))))
-               ,(with-gensyms (var args)
-                  `(defmethod lisp-type-expr ((,var (eql ',name)) &rest ,args)
-                     (declare (ignore ,var ,args))
-                     ',type))
-               (setf (get ',name 'slots) ',(cons (car include) slots)))
-             ,(with-gensyms (next self null result)
-                (let* ((all-slots (delete-if-not #'slot-name (slots)))
-                       (defstruct-slots (remove-if #'slot-excluded-p all-slots))
-                       (ancestor-slots (when include (delete-if-not #'slot-name (slots (list (car include))))))
-                       (bindings (let ((*place* (lambda (slot)
-                                                  (lambda (value)
-                                                    (once-only (value)
-                                                      `(if (eq ,self ',null)
-                                                           (setf ,slot ,value)
-                                                           (setf (,(symbolicate name '- slot) ,self) ,value)))))))
-                                   (slots-parser-bindings slots))))
-                  `(progn
-                     (defparser ,constructor ,(mapcar #'car all-slots)
-                       (constantly
-                        (progn
-                          ,@(set-difference (mapcar #'car all-slots) (mapcar #'car defstruct-slots))
-                          (the ,type (,defstruct-constructor
-                                         . ,(loop :for slot :in defstruct-slots
-                                                  :for (name) := slot
-                                                  :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot))))))))
-                     (defparser ,parser (,next ,@(mapcar #'car ancestor-slots) ,@lambda-list)
-                       (let* ((,self (constantly ',null)) . ,bindings)
-                         (for ((,result (parser-call ,next . ,(mapcar #'car all-slots))))
-                           (setf ,self ,result))))
-                     (defparser ,derive (,next . ,lambda-list)
-                       ,(if include
-                            `(,(let ((*package* (symbol-package (car include))))
-                                 (symbolicate (car include) '#:/derive))
-                              ,(if-let ((args (parsonic::lambda-list-arguments lambda-list)))
-                                 `(rcurry (curry #',parser ,next) . ,args)
-                                 `(curry #',parser ,next))
-                              . ,(cdr include))
-                            `(,parser ,next . ,(parsonic::lambda-list-arguments lambda-list))))
-                     (defparser ,name ,lambda-list
-                       (,derive #',constructor . ,(parsonic::lambda-list-arguments lambda-list))))))))))))
+                 ,(with-gensyms (var args)
+                    `(defmethod lisp-type-expr ((,var (eql ',name)) &rest ,args)
+                       (declare (ignore ,var ,args))
+                       ',type))
+                 (setf (get ',name 'slots) ',(cons (car include) slots)))
+               (progn
+                 (defparser ,constructor ,(mapcar #'car all-slots)
+                   (constantly
+                    (progn
+                      ,@(set-difference (mapcar #'car all-slots) (mapcar #'car all-defstruct-slots))
+                      (the ,type (,defstruct-constructor
+                                     . ,(loop :for slot :in all-defstruct-slots
+                                              :for (name) := slot
+                                              :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot))))))))
+                 (defparser ,parser (,next ,@(mapcar #'car ancestor-slots) ,@lambda-list)
+                   (let* ((,self (constantly ',null)) . ,bindings)
+                     (for ((,result (parser-call ,next . ,(mapcar #'car all-slots))))
+                       (setf ,self ,result))))
+                 (defparser ,derive (,next . ,lambda-list)
+                   ,(if include
+                        `(,(let ((*package* (symbol-package (car include))))
+                             (symbolicate (car include) '#:/derive))
+                          ,(if-let ((args (parsonic::lambda-list-arguments lambda-list)))
+                             `(rcurry (curry #',parser ,next) . ,args)
+                             `(curry #',parser ,next))
+                          . ,(cdr include))
+                        `(,parser ,next . ,(parsonic::lambda-list-arguments lambda-list))))
+                 (defparser ,name ,lambda-list
+                   (,derive #',constructor . ,(parsonic::lambda-list-arguments lambda-list)))))))))))
 
 (define-condition deserialize-error (parse-error)
   ((position :initarg :position :reader deserialize-error-position))
