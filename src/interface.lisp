@@ -107,10 +107,11 @@
              (defparser ,name ,lambda-list
                (for ((,value ,(expand-type-unit type)))
                  (,unpack ,value)))
-             (defmethod expand-type-expr ((name (eql ',name)) &rest ,args)
-               (destructuring-bind ,lambda-list ,args
-                 `(for ((,',value ,(let ((*endian* ,endian)) (expand-type ',type))))
-                    (,',unpack ,',value))))))))))
+             (eval-when (:compile-toplevel :load-toplevel :execute)
+               (defmethod expand-type-expr ((name (eql ',name)) &rest ,args)
+                 (destructuring-bind ,lambda-list ,args
+                   `(for ((,',value ,(let ((*endian* ,endian)) (expand-type ',type))))
+                      (,',unpack ,',value)))))))))))
 
 (defmethod expand-type-expr ((name (eql 'inline)) &rest args)
   (destructuring-bind (var) args
