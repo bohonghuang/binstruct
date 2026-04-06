@@ -113,6 +113,9 @@
                    `(for ((,',value ,(let ((*endian* ,endian)) (expand-type ',type))))
                       (,',unpack ,',value)))))))))))
 
+(defparser inline (parser)
+  parser)
+
 (defmethod expand-type-expr ((name (eql 'inline)) &rest args)
   (destructuring-bind (var) args
     (pushnew var *inlines*)
