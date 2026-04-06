@@ -6,8 +6,17 @@
 
 (declaim (ftype (function (list) (values (simple-array base-char (*)))) bytes-base-string))
 (defun bytes-base-string (list)
-  (loop :for cons :on list :do (setf (car cons) (code-char (the (unsigned-byte 8) (car cons)))))
-  (coerce list '(simple-array base-char (*))))
+  (loop :for previous := nil :then current
+        :for current :on list
+        :for code :of-type (unsigned-byte 8) := (car current)
+        :when (= code #x00)
+          :return (if previous
+                      (prog2 (setf (cdr previous) nil)
+                          (coerce list '(simple-array base-char (*)))
+                        (setf (cdr previous) current))
+                      #.(coerce "" 'simple-base-string))
+        :do (setf (car current) (code-char code))
+        :finally (return (coerce list '(simple-array base-char (*))))))
 
 (defparser simple-base-string/fixed-length (size)
   (for ((list (rep (unsigned-byte 8) size size)))
