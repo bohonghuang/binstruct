@@ -439,3 +439,12 @@
                                                                                   :initial-contents '(2 2 3)))))))))
   (is-parse-equal (nonlocal-position-struct-4-2)
     (#3# (make-nonlocal-position-struct-4-2 . #4#))))
+
+(defbinstruct position-pointer-struct ()
+  (start 0 :type position)
+  (string 0 :type (pointer simple-base-string (unsigned-byte 8) $base))
+  ($base 0 :type (pointer position (unsigned-byte 8) start)))
+
+(define-test position-pointer :parent suite
+  (is-parse-equal (position-pointer-struct)
+    (#(4 2 0 0 0 0 72 101 108 108 111 0) (make-position-pointer-struct :string (coerce "Hello" 'simple-base-string)))))

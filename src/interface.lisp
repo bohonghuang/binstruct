@@ -8,6 +8,9 @@
 (defvar *place*)
 (defvar *positions*)
 
+(deftype input-position ()
+  'non-negative-fixnum)
+
 (defun finish-partial-byte ()
   (unless (integerp *offset*)
     (nconcf *bindings* (list `(nil ,(expand-type `(unsigned-byte ,(* (- (ceiling *offset*) *offset*) 8))))))))
@@ -31,8 +34,7 @@
   (car slot))
 
 (defun slot-excluded-p (slot)
-  (or (let ((type (getf slot :type)))
-        (eq type 'position))
+  (or (eq (lisp-type (getf slot :type)) 'input-position)
       (null (slot-name slot))))
 
 (defun slots-parser-bindings (slots &aux (bindings (if (boundp '*bindings*) *bindings* t)))
@@ -58,24 +60,23 @@
     (when (consp bindings)
       (nconcf *bindings* bindings))))
 
-(defun expand-type-unit (type &key (endian :little) (offset 0))
+(defun expand-type-unit (type &key (endian :little) (offset 0) (slot (with-gensyms (slot) slot)))
   (when (and (boundp '*offset*) (boundp '*bindings*))
     (finish-partial-byte))
-  (with-gensyms (slot)
-    (let ((*endian* endian)
-          (*offset* offset)
-          (*bindings* t)
-          (*place* (let ((place (when (boundp '*place*) *place*)))
-                     (lambda (name)
-                       (assert (eq name slot))
-                       (funcall place)))))
-      (let ((bindings (slots-parser-bindings `((,slot nil :type ,type)))))
-        (if (= (length bindings) 1)
-            (progn
-              (assert (eq (first (first bindings)) slot))
-              (second (first bindings)))
-            `(let* ,bindings
-               (constantly ,slot)))))))
+  (let ((*endian* endian)
+        (*offset* offset)
+        (*bindings* t)
+        (*place* (let ((place (when (boundp '*place*) *place*)))
+                   (lambda (name)
+                     (assert (eq name slot))
+                     (funcall place)))))
+    (let ((bindings (slots-parser-bindings `((,slot nil :type ,type)))))
+      (if (= (length bindings) 1)
+          (progn
+            (assert (eq (first (first bindings)) slot))
+            (second (first bindings)))
+          `(let* ,bindings
+             (constantly ,slot))))))
 
 (defmacro defbinenum (name-and-options lambda-list &body fields)
   (destructuring-bind (name &rest options &aux (*package* (symbol-package name))) (ensure-list name-and-options)
@@ -161,7 +162,7 @@
                                             (lambda (value)
                                               (once-only (value)
                                                 `(if (eq ,self ',null)
-                                                     (setf ,slot ,value)
+                                                     ,value
                                                      ,(if (or (not typep) (and (symbolp type) (subtypep type 'structure-object)))
                                                           `(setf (,(symbolicate type '- slot) ,self) ,value)
                                                           '(assert nil))))))))
