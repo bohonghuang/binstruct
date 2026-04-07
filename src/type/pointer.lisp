@@ -68,6 +68,10 @@
         (unless (symbol-package (car slot))
           (nconcf (cdr *slots*) (list `(nil nil :type (inline (constantly ,(car slot)))))))))))
 
+(defmethod lisp-type-expr ((name (eql 'pointer-1)) &rest args)
+  (declare (ignore args))
+  (assert nil))
+
 (defmethod expand-type-expr ((name (eql 'pointer-2)) &rest args)
   (destructuring-bind (data-type base offset place &aux (slot (first *slots*))) args
     (with-gensyms (result thunk position)
@@ -89,3 +93,6 @@
                             (expand-type-unit `(peek ,data-type (+ ,position ,offset)))))))))))
                (constantly ,offset))
         (setf (car slot) nil)))))
+
+(defmethod lisp-type-expr ((name (eql 'pointer-2)) &rest args)
+  (lisp-type (first args)))
