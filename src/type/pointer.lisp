@@ -83,7 +83,7 @@
                      (cut
                       (let ((,position (constantly (progn ,position))))
                         ((lambda (,result)
-                           ,(funcall (funcall place) result)
+                           ,(funcall place result)
                            (parser (constantly ,result)))
                          ,(let ((*place* place))
                             (expand-type-unit `(peek ,data-type (+ ,position ,offset)))))))))))

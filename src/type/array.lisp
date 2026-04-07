@@ -16,7 +16,7 @@
   (destructuring-bind (element-type (length)) array-type-args
     (with-gensyms (array index element)
       (let ((name (car (first *slots*)))
-            (parser (let ((*place* (constantly (lambda (value) `(setf (aref ,array ,index) ,value))))
+            (parser (let ((*place* (lambda (value) `(setf (aref ,array ,index) ,value)))
                           (*slots* nil))
                       (expand-type-unit element-type))))
         (if (eq length '*)
