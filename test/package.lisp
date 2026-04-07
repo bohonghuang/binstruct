@@ -448,3 +448,15 @@
 (define-test position-pointer :parent suite
   (is-parse-equal (position-pointer-struct)
     (#(4 2 0 0 0 0 72 101 108 108 111 0) (make-position-pointer-struct :string (coerce "Hello" 'simple-base-string)))))
+
+(defbinstruct nonlocal-pointers-in-cons-struct ()
+  ($base1 0 :type position)
+  (cons '(0 . 0) :type (cons (pointer (unsigned-byte 8) (unsigned-byte 4) $base1)
+                             (pointer (unsigned-byte 8) (unsigned-byte 4) $base2)))
+  ($base2 0 :type position))
+
+(define-test nonlocal-pointer-list :parent suite
+  (is-parse-equal (nonlocal-pointers-in-cons-struct)
+    (#(#x11 #x01 #x02)
+      (make-nonlocal-pointers-in-cons-struct
+       :cons (cons 1 2)))))
