@@ -162,7 +162,9 @@
                                               (once-only (value)
                                                 `(if (eq ,self ',null)
                                                      (setf ,slot ,value)
-                                                     (setf (,(symbolicate name '- slot) ,self) ,value)))))))
+                                                     ,(if (or (not typep) (and (symbolp type) (subtypep type 'structure-object)))
+                                                          `(setf (,(symbolicate type '- slot) ,self) ,value)
+                                                          '(assert nil))))))))
                              (slots-parser-bindings slots))))
             `(progn
                (eval-when (:compile-toplevel :load-toplevel :execute)
