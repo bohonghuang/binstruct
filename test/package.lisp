@@ -481,14 +481,15 @@
                   (1 (pointer (simple-array (unsigned-byte 8) (length)) (unsigned-byte 8) base)))))
 
 (defbinstruct nonlocal-pointers-in-tagged-union-struct ()
-  ($base 0 :type position)
+  ($base1 0 :type position)
   (tag 0 :type (unsigned-byte 8))
   (length nil :type (ecase tag
                       (0 (null))
-                      (1 (unsigned-byte 8))))
+                      (1 (pointer (unsigned-byte 8) (unsigned-byte 8) $base1))))
   (data 0 :type (ecase tag
                   (0 (unsigned-byte 8))
-                  (1 (pointer (simple-array (unsigned-byte 8) (length)) (unsigned-byte 8) $base)))))
+                  (1 (pointer (simple-array (unsigned-byte 8) (length)) (unsigned-byte 8) $base2))))
+  ($base2 0 :type position))
 
 (define-test pointer-union :parent suite
   (is-parse-equal (local-pointers-in-tagged-union-struct)
@@ -501,7 +502,7 @@
   (is-parse-equal (nonlocal-pointers-in-tagged-union-struct)
     (#(0 42)
       (make-nonlocal-pointers-in-tagged-union-struct :tag 0 :data 42))
-    (#(1 4 3 1 2 3 4)
+    (#(1 3 1 4 1 2 3 4)
       (make-nonlocal-pointers-in-tagged-union-struct
        :tag 1 :length 4
        :data (make-array 4 :element-type '(unsigned-byte 8) :initial-contents '(1 2 3 4))))))

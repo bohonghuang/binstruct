@@ -39,6 +39,10 @@
                       :collect `(,key (parser ,type)))))
          (constantly ,object))))))
 
+(defmethod expand-type-expr ((name (eql 'ecase)) &rest args)
+  (destructuring-bind (object &rest clauses) args
+    `(ecase ,object . ,(loop :for (key type) :in clauses :collect `(,key ,(expand-type-unit type))))))
+
 (defmethod lisp-type-expr ((name (eql 'ecase)) &rest args)
   (destructuring-bind (object &rest clauses) args
     (declare (ignore object))

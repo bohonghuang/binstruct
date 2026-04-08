@@ -64,38 +64,26 @@
     (with-gensyms (offset)
       (setf (car (find (car slot) *bindings* :from-end t :key #'car)) offset)
       (prog1 (if (global-position-p base)
-                 (progn
-                   (nconcf (cdr *slots*) (list `(,(first slot) ,(second slot) :type (pointer-2 ,data-type ,base ,offset ,*place*))))
-                   `(constantly ,(type-default-value data-type)))
+                 (with-gensyms (result thunk position)
+                   `((lambda (,offset)
+                       (funcall
+                        (lambda (,thunk)
+                          (if-let ((,position (pointer-base-position ',base ,thunk)))
+                            (funcall ,thunk ,position)
+                            (parser (constantly ,(type-default-value data-type)))))
+                        (lambda (,position)
+                          (declare (type non-negative-fixnum ,position))
+                          (parser
+                           (cut
+                            (let ((,position (constantly (progn ,position))))
+                              ((lambda (,result)
+                                 ,(funcall *place* result)
+                                 (parser (constantly ,result)))
+                               ,(expand-type-unit `(peek ,data-type (+ ,position ,offset))))))))))
+                     (constantly ,offset)))
                  (expand-type `(peek ,data-type (+ ,base ,offset))))
         (unless (symbol-package (car slot))
           (nconcf (cdr *slots*) (list `(nil nil :type (inline (constantly ,(car slot)))))))))))
 
 (defmethod lisp-type-expr ((name (eql 'pointer-1)) &rest args)
-  (declare (ignore args))
-  (assert nil))
-
-(defmethod expand-type-expr ((name (eql 'pointer-2)) &rest args)
-  (destructuring-bind (data-type base offset place &aux (slot (first *slots*))) args
-    (with-gensyms (result thunk position)
-      (prog1 `((lambda (,offset)
-                 (funcall
-                  (lambda (,thunk)
-                    (if-let ((,position (pointer-base-position ',base ,thunk)))
-                      (funcall ,thunk ,position)
-                      (parser (constantly ,(car slot)))))
-                  (lambda (,position)
-                    (declare (type non-negative-fixnum ,position))
-                    (parser
-                     (cut
-                      (let ((,position (constantly (progn ,position))))
-                        ((lambda (,result)
-                           ,(funcall place result)
-                           (parser (constantly ,result)))
-                         ,(let ((*place* place))
-                            (expand-type-unit `(peek ,data-type (+ ,position ,offset)))))))))))
-               (constantly ,offset))
-        (setf (car slot) nil)))))
-
-(defmethod lisp-type-expr ((name (eql 'pointer-2)) &rest args)
   (lisp-type (first args)))
