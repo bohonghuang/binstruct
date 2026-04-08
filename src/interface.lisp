@@ -4,7 +4,6 @@
 (defvar *offset*)
 (defvar *slots*)
 (defvar *bindings*)
-(defvar *inlines*)
 (defvar *place*)
 (defvar *positions*)
 
@@ -122,11 +121,6 @@
 (defparser inline (parser)
   parser)
 
-(defmethod expand-type-expr ((name (eql 'inline)) &rest args)
-  (destructuring-bind (var) args
-    (pushnew var *inlines*)
-    var))
-
 (defmethod lisp-type-expr ((name (eql 'inline)) &rest args)
   (declare (ignore args))
   t)
@@ -143,8 +137,7 @@
                          &allow-other-keys
                          &aux
                            (*endian* endian)
-                           (*offset* 0)
-                           (*inlines* nil))
+                           (*offset* 0))
         (mappend #'identity options)
       (delete-from-plistf args :constructor :include :endian)
       (labels ((slots (&optional (slots (cons (car (ensure-list include)) slots)))
