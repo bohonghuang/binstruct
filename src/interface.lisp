@@ -62,7 +62,7 @@
   (when (and (boundp '*offset*) (boundp '*bindings*))
     (finish-partial-byte))
   (let* ((name (or (when (boundp '*slots*) (car (first *slots*))) (with-gensyms (slot) slot)))
-         (place (when (boundp '*place*) *place*)))
+         (place (or (when (boundp '*place*) *place*) (constantly '(assert nil)))))
     (with-gensyms (unit null)
       (let ((*endian* endian)
             (*offset* offset)

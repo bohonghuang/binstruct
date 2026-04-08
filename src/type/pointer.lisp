@@ -48,13 +48,16 @@
       (unless (car slot) (setf (car slot) (with-gensyms (pointer) pointer)))
       (nconcf (cdr *slots*) (list `(,(first slot) ,(second slot) :type (pointer-1 ,data-type ,base))))
       (setf (second slot) 0))
-    (let ((*place* nil) (*slots* nil))
+    (let ((*place* (constantly '(assert nil))) (*slots* nil))
       (expand-type pointer-type))))
 
 (defmethod lisp-type-expr ((name (eql 'pointer)) &rest args)
   (destructuring-bind (data-type &rest args) args
     (declare (ignore args))
     (lisp-type data-type)))
+
+(defmethod parsonic::expand-expr ((name (eql 'pointer)) &rest args)
+  (parsonic::expand (expand-type-unit (cons name args))))
 
 (defmethod expand-type-expr ((name (eql 'pointer-1)) &rest args)
   (destructuring-bind (data-type base &aux (slot (first *slots*))) args

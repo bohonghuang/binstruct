@@ -449,14 +449,59 @@
   (is-parse-equal (position-pointer-struct)
     (#(4 2 0 0 0 0 72 101 108 108 111 0) (make-position-pointer-struct :string (coerce "Hello" 'simple-base-string)))))
 
+(defbinstruct local-pointers-in-cons-struct ()
+  (base 0 :type position)
+  (cons '(0 . 0) :type (cons (pointer (unsigned-byte 8) (unsigned-byte 4) base)
+                             (pointer (unsigned-byte 8) (unsigned-byte 4) base))))
+
 (defbinstruct nonlocal-pointers-in-cons-struct ()
   ($base1 0 :type position)
   (cons '(0 . 0) :type (cons (pointer (unsigned-byte 8) (unsigned-byte 4) $base1)
                              (pointer (unsigned-byte 8) (unsigned-byte 4) $base2)))
   ($base2 0 :type position))
 
-(define-test nonlocal-pointer-list :parent suite
+(define-test pointer-list :parent suite
+  (is-parse-equal (local-pointers-in-cons-struct)
+    (#(#x21 #x01 #x02)
+      (make-local-pointers-in-cons-struct
+       :cons (cons 1 2))))
   (is-parse-equal (nonlocal-pointers-in-cons-struct)
     (#(#x11 #x01 #x02)
       (make-nonlocal-pointers-in-cons-struct
        :cons (cons 1 2)))))
+
+(defbinstruct local-pointers-in-tagged-union-struct ()
+  (base 0 :type position)
+  (tag 0 :type (unsigned-byte 8))
+  (length nil :type (ecase tag
+                      (0 (null))
+                      (1 (unsigned-byte 8))))
+  (data 0 :type (ecase tag
+                  (0 (unsigned-byte 8))
+                  (1 (pointer (simple-array (unsigned-byte 8) (length)) (unsigned-byte 8) base)))))
+
+(defbinstruct nonlocal-pointers-in-tagged-union-struct ()
+  ($base 0 :type position)
+  (tag 0 :type (unsigned-byte 8))
+  (length nil :type (ecase tag
+                      (0 (null))
+                      (1 (unsigned-byte 8))))
+  (data 0 :type (ecase tag
+                  (0 (unsigned-byte 8))
+                  (1 (pointer (simple-array (unsigned-byte 8) (length)) (unsigned-byte 8) $base)))))
+
+(define-test pointer-union :parent suite
+  (is-parse-equal (local-pointers-in-tagged-union-struct)
+    (#(0 42)
+      (make-local-pointers-in-tagged-union-struct :tag 0 :data 42))
+    (#(1 4 3 1 2 3 4)
+      (make-local-pointers-in-tagged-union-struct
+       :tag 1 :length 4
+       :data (make-array 4 :element-type '(unsigned-byte 8) :initial-contents '(1 2 3 4)))))
+  (is-parse-equal (nonlocal-pointers-in-tagged-union-struct)
+    (#(0 42)
+      (make-nonlocal-pointers-in-tagged-union-struct :tag 0 :data 42))
+    (#(1 4 3 1 2 3 4)
+      (make-nonlocal-pointers-in-tagged-union-struct
+       :tag 1 :length 4
+       :data (make-array 4 :element-type '(unsigned-byte 8) :initial-contents '(1 2 3 4))))))
