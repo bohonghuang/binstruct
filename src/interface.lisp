@@ -138,7 +138,7 @@
              args
            &key
              (type name typep)
-             (constructor (symbolicate '#:make- name))
+             (constructor (symbolicate '#:make- type) constructorp)
              (endian :little)
              (include nil)
            &allow-other-keys
@@ -149,7 +149,7 @@
                         `(unless (eq ,self ',null)
                            ,(cond
                               ((slot-excluded-p) value)
-                              ((or (not typep) (and (symbolp type) (subtypep type 'structure-object)))
+                              ((and (or (not typep) (subtypep type 'structure-object)) (not constructorp))
                                `(setf (,(symbolicate type '- (slot-name)) ,self) ,value))
                               (t (place-set (place-null) value)))))))
           (mappend #'identity options)
