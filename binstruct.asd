@@ -10,7 +10,8 @@
   :depends-on (#:alexandria #:parsonic #:parsonic.stream)
   :pathname "src/"
   :components ((:file "package")
-               (:file "interface" :depends-on ("package"))
+               (:file "place")
+               (:file "interface" :depends-on ("package" "place"))
                (:module "type"
                 :components ((:file "default")
                              (:file "condition")
@@ -24,7 +25,7 @@
                              (:module "optimize"
                               :components ((:file "array"))
                               :depends-on ("array")))
-                :depends-on ("package" "interface")))
+                :depends-on ("package" "interface" "place")))
   :in-order-to ((test-op (test-op #:binstruct/test))))
 
 (defsystem binstruct/test

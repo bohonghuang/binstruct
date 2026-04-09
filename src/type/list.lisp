@@ -14,13 +14,14 @@
 (defmethod expand-type-expr ((name (eql 'cons)) &rest args)
   (destructuring-bind (car cdr) args
     (with-gensyms (cons var-car var-cdr)
-      (let ((bindings (let ((*place* (lambda (value &aux (name (car (first *slots*))))
-                                       (setf (get cons 'used) t)
-                                       `(if ,cons
-                                            (setf ,(eswitch (name) (var-car `(car ,cons)) (var-cdr `(cdr ,cons))) ,value)
-                                            (setf ,name ,value)))))
-                        (slots-parser-bindings `((,var-car nil :type ,car) (,var-cdr nil :type ,cdr))))))
-        (if (get cons 'used)
+      (let* ((*place* (place-lambda (value)
+                        `(when ,cons
+                           (setf ,(eswitch ((slot-name))
+                                    (var-car `(car ,cons))
+                                    (var-cdr `(cdr ,cons)))
+                                 ,value))))
+             (bindings (slots-parser-bindings `((,var-car nil :type ,car) (,var-cdr nil :type ,cdr)))))
+        (if (place-used-p *place*)
             `(let* ((,cons (constantly nil)) . ,bindings)
                (constantly (setf ,cons (cons ,var-car ,var-cdr))))
             `(let* ,bindings (constantly (cons ,var-car ,var-cdr))))))))

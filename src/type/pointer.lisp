@@ -48,7 +48,7 @@
       (unless (car slot) (setf (car slot) (with-gensyms (pointer) pointer)))
       (nconcf (cdr *slots*) (list `(,(first slot) ,(second slot) :type (pointer-1 ,data-type ,base))))
       (setf (second slot) 0))
-    (let ((*place* (constantly '(assert nil))) (*slots* nil))
+    (let ((*slots* nil) (*place* (place-null)))
       (expand-type pointer-type))))
 
 (defmethod lisp-type-expr ((name (eql 'pointer)) &rest args)
@@ -77,7 +77,7 @@
                            (cut
                             (let ((,position (constantly (progn ,position))))
                               ((lambda (,result)
-                                 ,(funcall *place* result)
+                                 ,(place-set *place* result)
                                  (parser (constantly ,result)))
                                ,(expand-type-unit `(peek ,data-type (+ ,position ,offset))))))))))
                      (constantly ,offset)))
