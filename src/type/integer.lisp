@@ -53,9 +53,15 @@
   (loop :with mappings
         :for n :from 8 :to (max +word-size+ 64) :by 8
         :nconc (loop :for endian :in '(:little :big)
-                     :for name := (setf (assoc-value mappings (list `(unsigned-byte ,n) endian) :test #'equal)
-                                        (intern (format nil "~A-~D~@[/~A~]" 'unsigned-byte n (when (> n 8) (ecase endian (:little 'le) (:big 'be))))))
-                     :when (> n 8) :collect `(defparser ,name () ,(unsigned-byte-parser n endian)))
+                     :for parser-name := (setf (assoc-value mappings (list `(unsigned-byte ,n) endian) :test #'equal)
+                                               (intern (format nil "~A-~D~@[/~A~]" 'unsigned-byte n (when (> n 8) (ecase endian (:little 'le) (:big 'be))))))
+                     :for function-name := (symbolicate '#:bytes- parser-name)
+                     :when (> n 8)
+                       :nconc (destructuring-ecase (unsigned-byte-parser n endian)
+                                ((for ((bytes parser)) body)
+                                 `((declaim (ftype (function (list) (values (unsigned-byte ,n))) ,function-name))
+                                   (defun ,function-name (,bytes) ,body)
+                                   (defparser ,parser-name () (for ((,bytes ,parser)) (,function-name ,bytes)))))))
           :into parsers
         :finally
            (return
