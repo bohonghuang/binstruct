@@ -17,8 +17,19 @@
                          (predicate
                           (with-gensyms (value)
                             (assert (equal (getf (first *slots*) :type) (cons name args)))
-                            `(lambda (,value) (equalp ,value ,(second (car *slots*)))))))
+                            `(lambda (,value) (equalp ,value ,(second (car *slots*)))))
+                          predicatep))
       args
+    (let ((constant (cond
+                      ((not predicatep) (second (car *slots*)))
+                      ((typep predicate '(cons (or (eql curry) (eql curry))
+                                          (cons (cons (eql function) (cons (or (eql eq) (eql eql) (eql equal) (eql equalp) (eql string=)) null))
+                                           (cons t null))))
+                       (caddr predicate))
+                      (t #1='#:nil))))
+      (unless (eq constant #1#)
+        (switch (type :test #'equal)
+          ('(unsigned-byte 8) (return-from expand-type-expr `(eql ,constant))))))
     (with-gensyms (value)
       `(let ((,value ,(expand-type type)))
          (rep (or) (if (funcall ,predicate ,value) 0 1))
