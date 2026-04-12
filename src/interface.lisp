@@ -91,7 +91,7 @@
   (destructuring-bind (name &rest options &aux (*package* (symbol-package name))) (ensure-list name-and-options)
     (destructuring-bind (&key
                            (type '(unsigned-byte 32))
-                           (endian :little)
+                           (endian :little endianp)
                          &allow-other-keys
                          &aux
                            (*endian* endian))
@@ -120,7 +120,7 @@
              (eval-when (:compile-toplevel :load-toplevel :execute)
                (defmethod expand-type-expr ((name (eql ',name)) &rest ,args)
                  (destructuring-bind ,lambda-list ,args
-                   `(for ((,',value ,(let ((*endian* ,endian)) (expand-type ',type))))
+                   `(for ((,',value ,(let ,(when endianp `((*endian* ,endian))) (expand-type ',type))))
                       (,',unpack ,',value)))))))))))
 
 (defparser inline (parser)
