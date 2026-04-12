@@ -1,10 +1,7 @@
 (in-package #:binstruct)
 
-(defun unsigned-byte-8-p (object)
-  (typecase object ((unsigned-byte 8) t)))
-
 (defparser unsigned-byte-8 ()
-  (satisfies #'unsigned-byte-8-p))
+  (satisfies (constantly t)))
 
 (declaim (ftype (function (list) (values integer)) bytes-unsigned-integer/le))
 (defun bytes-unsigned-integer/le (bytes)
