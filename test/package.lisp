@@ -39,6 +39,53 @@
     (#(#xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF)
       (make-bigint-struct :a (1- (expt 2 128))))))
 
+(defbinenum (big-endian-test-enum (:type (unsigned-byte 16))) ()
+  alpha (beta #x1234) gamma)
+
+(defbinstruct (big-endian-struct (:endian :big)) ()
+  (a 0 :type (unsigned-byte 8))
+  (b 0 :type (unsigned-byte 16))
+  (c 0 :type (unsigned-byte 32))
+  (d 0 :type (unsigned-byte 64))
+  (e 0 :type (signed-byte 8))
+  (f 0 :type (signed-byte 16))
+  (g 0 :type (signed-byte 32))
+  (h 0 :type (signed-byte 64))
+  (i 'alpha :type big-endian-test-enum))
+
+(define-test big-endian :parent suite
+  (is-parse-equal (big-endian-struct)
+    (#(#xFF
+       #x12 #x34
+       #x12 #x34 #x56 #x78
+       #x12 #x34 #x56 #x78 #x9A #xBC #xDE #xF0
+       #xFF
+       #xFF #xFF
+       #xFF #xFF #xFF #xFF
+       #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF
+       #x12 #x34)
+      (make-big-endian-struct
+       :a #xFF
+       :b #x1234
+       :c #x12345678
+       :d #x123456789ABCDEF0
+       :e -1
+       :f -1
+       :g -1
+       :h -1
+       :i 'beta))))
+
+(defbinenum (big-endian-enum (:type (unsigned-byte 16)) (:endian :big)) ()
+  alpha (beta #x1234) gamma)
+
+(defbinstruct big-endian-enum-struct ()
+  (value 'alpha :type big-endian-enum))
+
+(define-test big-endian-enum :parent suite
+  (is-parse-equal (big-endian-enum-struct)
+    (#(#x12 #x34)
+      (make-big-endian-enum-struct :value 'beta))))
+
 (defbinstruct bitfield-struct ()
   (a nil :type (boolean (unsigned-byte 1)))
   (b 0 :type (unsigned-byte 1))
