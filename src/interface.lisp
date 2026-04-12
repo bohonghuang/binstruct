@@ -214,7 +214,8 @@
                    (,derive #',constructor . ,(parsonic::lambda-list-arguments lambda-list)))))))))))
 
 (define-condition deserialize-error (parse-error)
-  ((position :initarg :position :reader deserialize-error-position))
+  ((input :initarg :input :reader deserialize-error-input)
+   (position :initarg :position :reader deserialize-error-position))
   (:report (lambda (condition stream)
              (format stream "Parse error at position ~A" (deserialize-error-position condition)))))
 
@@ -236,7 +237,7 @@
                     (,name . ,(parsonic::lambda-list-arguments lambda-list)))
                   ,input)
                (if ,error
-                   (error 'deserialize-error :position ,error)
+                   (error 'deserialize-error :position ,error :input ,input)
                    (if-let ((,position (find-if-not #'integerp *positions* :key #'cdr)))
                      (error 'unresolved-position-error :name (car ,position))
                      ,result)))))))))
