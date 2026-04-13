@@ -114,8 +114,8 @@
 
 (defbinstruct base-string-struct ()
   (length 0 :type (unsigned-byte 32))
-  (fixed-length "" :type (simple-base-string length))
-  (zero-terminated "" :type simple-base-string))
+  (fixed-length #.(coerce "" 'simple-string) :type (simple-base-string length))
+  (zero-terminated #.(coerce "" 'simple-string) :type simple-base-string))
 
 (define-test base-string :parent suite
   (is-parse-equal (base-string-struct)
@@ -167,11 +167,11 @@
     (#(1) (make-enum-struct :value 'b))))
 
 (defbinstruct tagged-union-struct ()
-  (tag 'a :type enum-struct-enum)
-  (data "" :type (ecase tag
-                   (a (simple-base-string 4))
-                   (b (unsigned-byte 8))
-                   (c (simple-array (unsigned-byte 8) (4))))))
+  (tag 'b :type enum-struct-enum)
+  (data 0 :type (ecase tag
+                  (a (simple-base-string 4))
+                  (b (unsigned-byte 8))
+                  (c (simple-array (unsigned-byte 8) (4))))))
 
 (define-test tagged-union :parent suite
   (is-parse-equal (tagged-union-struct)
@@ -252,13 +252,13 @@
 (defbinstruct (typed-struct-null (:include (typed-struct #x00))) ())
 
 (defbinstruct (typed-struct-boolean (:include (typed-struct #x01))) ()
-  (value 0 :type (boolean (unsigned-byte 8))))
+  (value nil :type (boolean (unsigned-byte 8))))
 
 (defbinstruct (typed-struct-integer (:include (typed-struct #x02))) ()
   (value 0 :type (signed-byte 32)))
 
 (defbinstruct (typed-struct-string (:include (typed-struct #x03))) ()
-  (value 0 :type simple-base-string))
+  (value #.(coerce "" 'simple-base-string) :type simple-base-string))
 
 (defbinstruct or-struct ()
   (length 0 :type (unsigned-byte 8))
