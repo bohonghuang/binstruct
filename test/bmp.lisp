@@ -1,7 +1,7 @@
 (in-package #:binstruct.test)
 
 (defbinstruct bmp-file-header ()
-  (nil (coerce "BM" 'simple-base-string) :type (simple-base-string 2))
+  (nil #.(coerce "BM" 'simple-base-string) :type (simple-base-string 2))
   (file-size 0 :type (unsigned-byte 32))
   (nil 0 :type (unsigned-byte 16))
   (nil 0 :type (unsigned-byte 16))
