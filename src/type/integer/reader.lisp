@@ -40,10 +40,10 @@
       (- unsigned (ash 1 nbits))
       unsigned))
 
-(defmethod expand-type-expr ((name (eql 'signed-byte)) &rest args)
+(defmethod expand-reader-type-expr ((name (eql 'signed-byte)) &rest args)
   (destructuring-bind (n) args
     (with-gensyms (unsigned)
-      `(for ((,unsigned ,(expand-type `(unsigned-byte ,n))))
+      `(for ((,unsigned ,(expand-reader-type `(unsigned-byte ,n))))
          (the (signed-byte ,n) (unsigned-signed-integer ,unsigned ,n))))))
 
 (defmacro define-unsigned-integer-parsers ()
@@ -84,12 +84,12 @@
        `(for ((,unsigned (unsigned-byte ,n)))
           (the (signed-byte ,n) (unsigned-signed-integer ,unsigned ,n)))))))
 
-(defmethod expand-type-expr ((name (eql 'unsigned-byte)) &rest args)
+(defmethod expand-reader-type-expr ((name (eql 'unsigned-byte)) &rest args)
   (destructuring-bind (n) args
     (let* ((offset (prog1 *offset* (incf *offset* (/ n 8))))
            (binding (if (integerp offset)
                         (if (zerop (mod n 8))
-                            (return-from expand-type-expr (integer-type-parser (cons name args) *endian*))
+                            (return-from expand-reader-type-expr (integer-type-parser (cons name args) *endian*))
                             (with-gensyms (byte)
                               (let ((binding `(,byte ,offset)))
                                 (setf (get byte 'offset) (cdr binding))
@@ -106,4 +106,4 @@
                   (second binding) `(constantly 0)
                   (car parser) (let ((bytes (- *offset* start)) (*offset* 0))
                                  (check-type bytes positive-fixnum)
-                                 (expand-type `(unsigned-byte ,(* bytes 8)))))))))))
+                                 (expand-reader-type `(unsigned-byte ,(* bytes 8)))))))))))

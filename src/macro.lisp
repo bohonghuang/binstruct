@@ -1,92 +1,5 @@
 (in-package #:binstruct)
 
-(defvar *endian*)
-(defvar *offset*)
-(defvar *slots*)
-(defvar *bindings*)
-(defvar *place*)
-(defvar *positions*)
-
-(deftype input-position ()
-  'non-negative-fixnum)
-
-(defun finish-partial-byte ()
-  (unless (integerp *offset*)
-    (nconcf *bindings* (list `(nil ,(expand-type `(unsigned-byte ,(* (- (ceiling *offset*) *offset*) 8))))))))
-
-(defgeneric expand-type-expr (name &rest args)
-  (:method (name &rest args)
-    (finish-partial-byte)
-    (cons name args)))
-
-(defun expand-type (desc)
-  (apply #'expand-type-expr (ensure-list desc)))
-
-(defgeneric lisp-type-expr (name &rest args)
-  (:method (name &rest args)
-    (if args (cons name args) name)))
-
-(defun lisp-type (type)
-  (apply #'lisp-type-expr (ensure-list type)))
-
-(defun slot-name (&optional (slot (first *slots*)))
-  (car slot))
-
-(defun slot-excluded-p (&optional (slot (first *slots*)))
-  (or (eq (lisp-type (getf slot :type)) 'input-position)
-      (null (slot-name slot))))
-
-(defun slots-parser-bindings (slots &aux (bindings (if (boundp '*bindings*) *bindings* t)))
-  (prog1 (loop :for *slots* :on (copy-tree slots)
-               :for (slot) := *slots*
-               :for *bindings* := (let* ((*place* (place-lambda (value) `(progn ,(place-set (place-parent) value) (setf ,(slot-name) ,value))))
-                                         (bindings (when (consp bindings) (remove-if-not #'symbol-plist bindings :key #'car)))
-                                         (*bindings* (append bindings *bindings*))
-                                         (type (expand-type (getf slot :type))))
-                                    (nconc (nthcdr (length bindings) *bindings*)
-                                           (if (place-used-p *place*)
-                                               (list `(,(car slot) (constantly nil))
-                                                     (with-gensyms (value)
-                                                       `(nil ((lambda (,value)
-                                                                (setf ,(car slot) ,value)
-                                                                (parser (constantly nil)))
-                                                              ,type))))
-                                               (list `(,(car slot) ,type)))))
-               :finally
-                  (if (listp bindings)
-                      (loop :for (var val) :in *bindings*
-                            :for pvar := (gensym (string '#:pvar))
-                            :when (setf (symbol-plist pvar) (symbol-plist var))
-                              :collect `(,pvar (constantly nil)) :into parent-bindings
-                              :and :collect `(nil (constantly (setf ,pvar ,var))) :into new-bindings
-                            :finally
-                               (setf bindings parent-bindings)
-                               (nconcf *bindings* new-bindings))
-                      (finish-partial-byte))
-                  (return *bindings*))
-    (when (consp bindings)
-      (nconcf *bindings* bindings))))
-
-(defun expand-type-unit (type &key (endian :little) (offset 0))
-  (when (and (boundp '*offset*) (boundp '*bindings*))
-    (finish-partial-byte))
-  (with-gensyms (unit null value setter)
-    (let ((*endian* endian)
-          (*offset* offset)
-          (*bindings* t)
-          (*slots* (or (when (boundp '*slots*) *slots*) (with-gensyms (slot) (list (list slot)))))
-          (*place* (place-lambda (value) `(unless (eq ,unit ',null) (funcall ,setter ,value)))))
-      (let* ((name (slot-name)) (bindings (slots-parser-bindings `((,name nil :type ,type)))))
-        (cond
-          ((place-used-p *place*)
-           `(let* ((,setter (constantly (lambda (,value) ,(place-set (place-parent *place*) value))))
-                   (,unit (constantly ',null)) . ,bindings)
-              (constantly (setf ,unit ,name))))
-          ((> (length bindings) 1)
-           `(let* ,bindings (constantly ,name)))
-          (t (assert (eq (first (first bindings)) name))
-             (second (first bindings))))))))
-
 (defmacro defbinenum (name-and-options lambda-list &body fields)
   (destructuring-bind (name &rest options &aux (*package* (symbol-package name))) (ensure-list name-and-options)
     (destructuring-bind (&key
@@ -115,20 +28,13 @@
                (ecase ,value . ,(loop :for (name value) :in fields
                                       :collect `(,value ',name))))
              (defparser ,name ,lambda-list
-               (for ((,value ,(expand-type-unit type)))
+               (for ((,value ,(expand-reader-type-unit type)))
                  (,unpack ,value)))
              (eval-when (:compile-toplevel :load-toplevel :execute)
-               (defmethod expand-type-expr ((name (eql ',name)) &rest ,args)
+               (defmethod expand-reader-type-expr ((name (eql ',name)) &rest ,args)
                  (destructuring-bind ,lambda-list ,args
-                   `(for ((,',value ,(let ,(when endianp `((*endian* ,endian))) (expand-type ',type))))
+                   `(for ((,',value ,(let ,(when endianp `((*endian* ,endian))) (expand-reader-type ',type))))
                       (,',unpack ,',value)))))))))))
-
-(defparser inline (parser)
-  parser)
-
-(defmethod lisp-type-expr ((name (eql 'inline)) &rest args)
-  (declare (ignore args))
-  t)
 
 (defmacro defbinstruct (name-and-options lambda-list &rest slots)
   (destructuring-bind (name &rest options &aux (*package* (symbol-package name))) (ensure-list name-and-options)

@@ -10,22 +10,34 @@
   :depends-on (#:alexandria #:parsonic #:parsonic.stream)
   :pathname "src/"
   :components ((:file "package")
-               (:file "place")
-               (:file "interface" :depends-on ("package" "place"))
+               (:file "common" :depends-on ("package"))
+               (:file "place" :depends-on ("package"))
+               (:file "reader" :depends-on ("package" "common" "place"))
+               (:file "macro" :depends-on ("package" "common" "reader" "place"))
                (:module "type"
                 :components ((:file "default")
-                             (:file "condition")
-                             (:file "integer")
-                             (:file "boolean" :depends-on ("integer"))
-                             (:file "pointer" :depends-on ("integer" "default"))
-                             (:file "array" :depends-on ("default"))
-                             (:file "string" :depends-on ("integer"))
-                             (:file "map")
-                             (:file "list")
-                             (:module "optimize"
-                              :components ((:file "array"))
-                              :depends-on ("array")))
-                :depends-on ("package" "interface" "place")))
+                             (:module "condition"
+                              :components ((:file "reader")))
+                             (:module "integer"
+                              :components ((:file "reader")))
+                             (:module "boolean"
+                              :components ((:file "reader"))
+                              :depends-on ("integer"))
+                             (:module "pointer"
+                              :components ((:file "reader"))
+                              :depends-on ("integer" "default"))
+                             (:module "array"
+                              :components ((:file "reader")
+                                           (:file "reader-optimize" :depends-on ("reader")))
+                              :depends-on ("default"))
+                             (:module "string"
+                              :components ((:file "reader"))
+                              :depends-on ("integer"))
+                             (:module "map"
+                              :components ((:file "reader")))
+                             (:module "list"
+                              :components ((:file "reader"))))
+                :depends-on ("package" "common" "reader" "place")))
   :in-order-to ((test-op (test-op #:binstruct/test))))
 
 (defsystem binstruct/test

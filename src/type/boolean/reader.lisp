@@ -4,10 +4,10 @@
   (for ((value parser))
     (plusp value)))
 
-(defmethod expand-type-expr ((name (eql 'boolean)) &rest args)
+(defmethod expand-reader-type-expr ((name (eql 'boolean)) &rest args)
   (destructuring-bind (&optional (type '(unsigned-byte 8))) args
     (with-gensyms (value)
-      `(for ((,value ,(expand-type type)))
+      `(for ((,value ,(expand-reader-type type)))
          (declare (type ,type ,value))
          (plusp ,value)))))
 
