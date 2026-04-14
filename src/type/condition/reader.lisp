@@ -11,7 +11,7 @@
         (parsonic::expand `(predicate ,predicate-or-parser ,predicate))
         (call-next-method))))
 
-(defmethod expand-type-expr ((name (eql 'satisfies)) &rest args)
+(defmethod expand-reader-type-expr ((name (eql 'satisfies)) &rest args)
   (destructuring-bind (type
                        &optional
                          (predicate
@@ -29,9 +29,9 @@
                       (t #1='#:nil))))
       (unless (eq constant #1#)
         (switch (type :test #'equal)
-          ('(unsigned-byte 8) (return-from expand-type-expr `(eql ,constant))))))
+          ('(unsigned-byte 8) (return-from expand-reader-type-expr `(eql ,constant))))))
     (with-gensyms (value)
-      `(let ((,value ,(expand-type type)))
+      `(let ((,value ,(expand-reader-type type)))
          (rep (or) (if (funcall ,predicate ,value) 0 1))
          (constantly ,value)))))
 
@@ -50,17 +50,17 @@
                       :collect `(,key (parser ,type)))))
          (constantly ,object))))))
 
-(defmethod expand-type-expr ((name (eql 'ecase)) &rest args)
+(defmethod expand-reader-type-expr ((name (eql 'ecase)) &rest args)
   (destructuring-bind (object &rest clauses) args
-    `(ecase ,object . ,(loop :for (key type) :in clauses :collect `(,key ,(expand-type-unit type))))))
+    `(ecase ,object . ,(loop :for (key type) :in clauses :collect `(,key ,(expand-reader-type-unit type))))))
 
 (defmethod lisp-type-expr ((name (eql 'ecase)) &rest args)
   (destructuring-bind (object &rest clauses) args
     (declare (ignore object))
     `(or . ,(mapcar (compose #'lisp-type #'second) clauses))))
 
-(defmethod expand-type-expr ((name (eql 'or)) &rest args)
-  `(or . ,(loop :for type :in args :collect (expand-type-unit type))))
+(defmethod expand-reader-type-expr ((name (eql 'or)) &rest args)
+  `(or . ,(loop :for type :in args :collect (expand-reader-type-unit type))))
 
 (defmethod lisp-type-expr ((name (eql 'or)) &rest args)
   `(or . ,(loop :for type :in args :collect (lisp-type type))))

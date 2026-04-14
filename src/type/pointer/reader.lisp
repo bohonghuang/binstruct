@@ -13,18 +13,18 @@
 (defun global-position-p (name)
   (and (symbolp name) (eql (position #\$ (symbol-name name)) 0)))
 
-(defmethod expand-type-expr ((name (eql 'peek)) &rest args)
+(defmethod expand-reader-type-expr ((name (eql 'peek)) &rest args)
   (destructuring-bind (type &optional position) args
     (if position
-        `(peek (progn (position ,position) ,(expand-type-unit type)))
-        `(peek ,(expand-type type)))))
+        `(peek (progn (position ,position) ,(expand-reader-type-unit type)))
+        `(peek ,(expand-reader-type type)))))
 
 (defmethod lisp-type-expr ((name (eql 'peek)) &rest args)
   (destructuring-bind (type &optional position) args
     (declare (ignore position))
     (lisp-type type)))
 
-(defmethod expand-type-expr ((name (eql 'position)) &rest args)
+(defmethod expand-reader-type-expr ((name (eql 'position)) &rest args)
   (destructuring-bind (&aux (name (car (first *slots*)))) args
     (if (global-position-p name)
         (with-gensyms (position pending)
@@ -40,16 +40,16 @@
 
 (defmethod lisp-type-expr ((name (eql 'position)) &rest args)
   (destructuring-bind () args
-    'input-position))
+    'offset))
 
-(defmethod expand-type-expr ((name (eql 'pointer)) &rest args)
+(defmethod expand-reader-type-expr ((name (eql 'pointer)) &rest args)
   (destructuring-bind (data-type pointer-type &optional (base 0)) args
     (let ((slot (first *slots*)))
       (unless (car slot) (setf (car slot) (with-gensyms (pointer) pointer)))
       (nconcf (cdr *slots*) (list `(,(first slot) ,(second slot) :type (pointer-1 ,data-type ,base))))
       (setf (second slot) 0))
     (let ((*slots* nil) (*place* (place-null)))
-      (expand-type pointer-type))))
+      (expand-reader-type pointer-type))))
 
 (defmethod lisp-type-expr ((name (eql 'pointer)) &rest args)
   (destructuring-bind (data-type &rest args) args
@@ -57,9 +57,9 @@
     (lisp-type data-type)))
 
 (defmethod parsonic::expand-expr ((name (eql 'pointer)) &rest args)
-  (parsonic::expand (expand-type-unit (cons name args))))
+  (parsonic::expand (expand-reader-type-unit (cons name args))))
 
-(defmethod expand-type-expr ((name (eql 'pointer-1)) &rest args)
+(defmethod expand-reader-type-expr ((name (eql 'pointer-1)) &rest args)
   (destructuring-bind (data-type base &aux (slot (first *slots*))) args
     (with-gensyms (offset)
       (setf (car (find (car slot) *bindings* :from-end t :key #'car)) offset)
@@ -79,9 +79,9 @@
                               ((lambda (,result)
                                  ,(place-set *place* result)
                                  (parser (constantly ,result)))
-                               ,(expand-type-unit `(peek ,data-type (+ ,position ,offset))))))))))
+                               ,(expand-reader-type-unit `(peek ,data-type (+ ,position ,offset))))))))))
                      (constantly ,offset)))
-                 (expand-type `(peek ,data-type (+ ,base ,offset))))
+                 (expand-reader-type `(peek ,data-type (+ ,base ,offset))))
         (unless (symbol-package (car slot))
           (nconcf (cdr *slots*) (list `(nil nil :type (inline (constantly ,(car slot)))))))))))
 

@@ -11,13 +11,13 @@
     (declare (type non-negative-fixnum position))
     (position (+ position n))))
 
-(defun expand-array-type (array-type &rest array-type-args)
+(defun expand-array-reader-type (array-type &rest array-type-args)
   (finish-partial-byte)
   (destructuring-bind (element-type (length)) array-type-args
     (with-gensyms (array index element)
       (let ((name (car (first *slots*)))
             (parser (let ((*slots* nil) (*place* (place-lambda (value) `(setf (aref ,array ,index) ,value))))
-                      (expand-type-unit element-type))))
+                      (expand-reader-type-unit element-type))))
         (if (eq length '*)
             `(sequence ,parser -1 ',(lisp-type (cons array-type array-type-args)))
             (if (equal parser '(unsigned-byte-8))
@@ -44,8 +44,8 @@
   (destructuring-bind (type (length)) args
     (parsonic::expand `(sequence ,type ,length ',(lisp-type (cons name args))))))
 
-(defmethod expand-type-expr ((name (eql 'simple-array)) &rest args)
-  (apply #'expand-array-type name args))
+(defmethod expand-reader-type-expr ((name (eql 'simple-array)) &rest args)
+  (apply #'expand-array-reader-type name args))
 
 (defmethod lisp-type-expr ((name (eql 'simple-array)) &rest args)
   (destructuring-bind (type (length)) args
@@ -56,8 +56,8 @@
   (destructuring-bind (type (length)) args
     (parsonic::expand `(sequence ,type ,length ',(lisp-type (cons name args))))))
 
-(defmethod expand-type-expr ((name (eql 'array)) &rest args)
-  (apply #'expand-array-type name args))
+(defmethod expand-reader-type-expr ((name (eql 'array)) &rest args)
+  (apply #'expand-array-reader-type name args))
 
 (defmethod lisp-type-expr ((name (eql 'array)) &rest args)
   (cons name (cdr (apply #'lisp-type-expr 'simple-array args))))

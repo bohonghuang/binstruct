@@ -3,7 +3,7 @@
 (defparser null ()
   (constantly nil))
 
-(defmethod expand-type-expr ((name (eql 'null)) &rest args)
+(defmethod expand-reader-type-expr ((name (eql 'null)) &rest args)
   (assert (null args))
   '(constantly nil))
 
@@ -11,7 +11,7 @@
   (destructuring-bind (car cdr) args
     `(cons ,(lisp-type car) ,(lisp-type cdr))))
 
-(defmethod expand-type-expr ((name (eql 'cons)) &rest args)
+(defmethod expand-reader-type-expr ((name (eql 'cons)) &rest args)
   (destructuring-bind (car cdr) args
     (with-gensyms (cons var-car var-cdr)
       (let* ((*place* (place-lambda (value)
@@ -36,5 +36,5 @@
 (defmethod lisp-type-expr ((name (eql 'list)) &rest args)
   (lisp-type (expand-list-type (cons name args))))
 
-(defmethod expand-type-expr ((name (eql 'list)) &rest args)
-  (expand-type (expand-list-type (cons name args))))
+(defmethod expand-reader-type-expr ((name (eql 'list)) &rest args)
+  (expand-reader-type (expand-list-type (cons name args))))
