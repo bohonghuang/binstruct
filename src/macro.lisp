@@ -142,13 +142,12 @@
         `(defun ,reader (,input . ,lambda-list)
            (let ((*positions* nil))
              (multiple-value-bind (,result ,error)
-                 ,(if (eq iotype t)
-                      `(parser-run (parser ,parser) ,input)
-                      `(funcall
-                        (parser-lambda (,input)
-                          (declare (type ,(case iotype (stream 'parsonic::binary-input-stream) (t iotype)) ,input))
-                          ,parser)
-                        ,input))
+                 (parser-run
+                  (parser ,parser)
+                  ,(case iotype
+                     ((t) input)
+                     ((stream) `(the parsonic::binary-input-stream ,input))
+                     (otherwise `(the ,iotype ,input))))
                (if ,error
                    (error 'deserialize-error :position ,error :input ,input :info ,result)
                    (if-let ((,position (find-if-not #'integerp *positions* :key #'cdr)))
