@@ -7,17 +7,17 @@
 (define-test suite)
 
 (defmacro is-parse-equal (parser &body tests)
-  (with-gensyms (bytes)
+  (with-gensyms (input)
     (let ((eval (make-symbol (format nil "~A [~A]" parser 'eval)))
           (compiled (make-symbol (format nil "~A [~A]" parser 'compiled))))
-      `(let ((,eval (parser ,parser))
-             (,compiled (parser-lambda (,bytes) (declare (type (simple-array (unsigned-byte 8) (*)) ,bytes)) ,parser)))
+      `(let ((,eval (lambda (,input) (parser-run (parser ,parser) ,input)))
+             (,compiled (lambda (,input) (parser-run (parser ,parser) (the (simple-array (unsigned-byte 8) (*)) ,input)))))
          ,@(loop :for (input expected) :in tests
                  :for bytes := (make-symbol (format nil "~A" input))
                  :collect (once-only (expected)
                             `(let ((,bytes (coerce ,input '(simple-array (unsigned-byte 8) (*)))))
                                (let ((binstruct::*positions* nil))
-                                 (is equalp ,expected (parser-run ,eval ,bytes)))
+                                 (is equalp ,expected (funcall ,eval ,bytes)))
                                (let ((binstruct::*positions* nil))
                                  (is equalp ,expected (funcall ,compiled ,bytes))))))))))
 
@@ -293,7 +293,7 @@
   (array (make-array 0 :element-type '(unsigned-byte 8)) :type (array (unsigned-byte 8) (length))))
 
 (define-test displaced-array :parent suite
-  (let ((parser (parser-lambda (input) (declare (type (simple-array (unsigned-byte 8) (*)) input)) (displaced-array-struct))))
+  (let ((parser (lambda (input) (parser-run (parser (displaced-array-struct)) (the (simple-array (unsigned-byte 8) (*)) input)))))
     (let* ((input (coerce #(4 #x12 #x34 #x56 #x78) '(simple-array (unsigned-byte 8) (*))))
            (array (displaced-array-struct-array (funcall parser input))))
       (is-values (array-displacement array) (eq input) (= 1))
