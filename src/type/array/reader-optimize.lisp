@@ -26,6 +26,13 @@
     (once-only (length)
       (with-gensyms (array)
         `(let ((,array (make-array ,length :element-type '(unsigned-byte 8))))
+           (if (= (read-sequence ,array ,input) ,length)
+               ,array
+               parsonic::+input-eof+)))))
+  (:method ((input (eql 'parsonic::unbuffered-binary-input-stream)) length)
+    (once-only (length)
+      (with-gensyms (array)
+        `(let ((,array (make-array ,length :element-type '(unsigned-byte 8))))
            (if (= (buffered-streams::stream-ring-buffer-read-sequence ,parsonic::*input-ring-buffer* ,array 0 (length ,array)) ,length)
                ,array
                parsonic::+input-eof+))))))
