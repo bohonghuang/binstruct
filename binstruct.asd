@@ -7,7 +7,7 @@
   :homepage "https://github.com/bohonghuang/binstruct"
   :bug-tracker "https://github.com/bohonghuang/binstruct/issues"
   :source-control (:git "https://github.com/bohonghuang/binstruct.git")
-  :depends-on (#:alexandria #:parsonic #:parsonic.stream)
+  :depends-on (#:alexandria #:parsonic)
   :pathname "src/"
   :components ((:file "package")
                (:file "common" :depends-on ("package"))
