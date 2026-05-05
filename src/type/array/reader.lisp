@@ -12,7 +12,7 @@
     (position (+ position n))))
 
 (defun expand-array-reader-type (array-type &rest array-type-args)
-  (finish-partial-byte)
+  (finish-reader-partial-byte)
   (destructuring-bind (element-type (length)) array-type-args
     (with-gensyms (array index element)
       (let ((name (car (first *slots*)))

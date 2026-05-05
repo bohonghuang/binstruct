@@ -6,20 +6,33 @@
 
 (define-test suite)
 
-(defmacro is-parse-equal (parser &body tests)
-  (with-gensyms (input)
-    (let ((eval (make-symbol (format nil "~A [~A]" parser 'eval)))
-          (compiled (make-symbol (format nil "~A [~A]" parser 'compiled))))
-      `(let ((,eval (lambda (,input) (parser-run (parser ,parser) ,input)))
-             (,compiled (lambda (,input) (parser-run (parser ,parser) (the (simple-array (unsigned-byte 8) (*)) ,input)))))
+(defmacro is-rw-equalp (struct &body tests)
+  (with-gensyms (input output)
+    (let ((reader-eval (make-symbol (format nil "~A [~A]" struct '#:reader/eval)))
+          (reader-compiled (make-symbol (format nil "~A [~A]" struct '#:reader/compiled)))
+          (writer-eval (make-symbol (format nil "~A [~A]" struct '#:writer-eval)))
+          (writer-compiled (make-symbol (format nil "~A [~A]" struct '#:writer-compiled))))
+      `(let* ((,reader-eval (lambda (,input) (parser-run (parser ,struct) ,input)))
+              (,reader-compiled (lambda (,input) (parser-run (parser ,struct) (the (simple-array (unsigned-byte 8) (*)) ,input)))))
          ,@(loop :for (input expected) :in tests
                  :for bytes := (make-symbol (format nil "~A" input))
                  :collect (once-only (expected)
-                            `(let ((,bytes (coerce ,input '(simple-array (unsigned-byte 8) (*)))))
-                               (let ((binstruct::*positions* nil))
-                                 (is equalp ,expected (funcall ,eval ,bytes)))
-                               (let ((binstruct::*positions* nil))
-                                 (is equalp ,expected (funcall ,compiled ,bytes))))))))))
+                            `(progn
+                               (let ((,bytes (coerce ,input '(simple-array (unsigned-byte 8) (*)))))
+                                 (let ((binstruct::*positions* nil))
+                                   (is equalp ,expected (funcall ,reader-eval ,bytes)))
+                                 (let ((binstruct::*positions* nil))
+                                   (is equalp ,expected (funcall ,reader-compiled ,bytes)))
+                                 (let ((,output (flex:make-in-memory-output-stream)))
+                                   (let ((binstruct::*positions* nil))
+                                     ,(binstruct::expand-writer-type-unit struct :output `(binstruct::stream-emitter-output ,output) :value expected)
+                                     (binstruct::flush-pointer-positions))
+                                   (let* ((,writer-eval (coerce (flex:get-output-stream-sequence ,output) '(simple-array (unsigned-byte 8) (*))))
+                                          (,writer-compiled ,writer-eval))
+                                     (let ((binstruct::*positions* nil))
+                                       (is equalp ,expected (funcall ,reader-eval ,writer-eval)))
+                                     (let ((binstruct::*positions* nil))
+                                       (is equalp ,expected (funcall ,reader-compiled ,writer-compiled)))))))))))))
 
 (defbinstruct basic-struct ()
   (a 0 :type (unsigned-byte 8))
@@ -28,14 +41,14 @@
   (d 0 :type (signed-byte 32)))
 
 (define-test struct :parent suite
-  (is-parse-equal (basic-struct)
+  (is-rw-equalp (basic-struct)
     (#(#xFF #xFF #xFF #x00 #xFF #xFF #xFF #xFF) (make-basic-struct :a 255 :b -1 :c 255 :d -1))))
 
 (defbinstruct bigint-struct ()
   (a 0 :type (unsigned-byte 128)))
 
 (define-test bigint :parent suite
-  (is-parse-equal (bigint-struct)
+  (is-rw-equalp (bigint-struct)
     (#(#xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF)
       (make-bigint-struct :a (1- (expt 2 128))))))
 
@@ -54,7 +67,7 @@
   (i 'alpha :type big-endian-test-enum))
 
 (define-test big-endian :parent suite
-  (is-parse-equal (big-endian-struct)
+  (is-rw-equalp (big-endian-struct)
     (#(#xFF
        #x12 #x34
        #x12 #x34 #x56 #x78
@@ -82,7 +95,7 @@
   (value 'alpha :type big-endian-enum))
 
 (define-test big-endian-enum :parent suite
-  (is-parse-equal (big-endian-enum-struct)
+  (is-rw-equalp (big-endian-enum-struct)
     (#(#x12 #x34)
       (make-big-endian-enum-struct :value 'beta))))
 
@@ -96,7 +109,7 @@
   (g 0 :type (unsigned-byte 7)))
 
 (define-test bit-field :parent suite
-  (is-parse-equal (bitfield-struct)
+  (is-rw-equalp (bitfield-struct)
     (#(#b10011101 #b10010001 #b00000001 #b0000000 #b11111111)
       (make-bitfield-struct :a t :b 0 :c 3 :d 9 :e -111 :f -32768 :g 127))))
 
@@ -108,7 +121,7 @@
   (e 0 :type (signed-byte 9)))
 
 (define-test padded-bitfield :parent suite
-  (is-parse-equal (padded-bitfield-struct)
+  (is-rw-equalp (padded-bitfield-struct)
     (#(#b00001011 #b10011101 #b10010001 #b00000001 #b0000000 #b11111111 #b00000000 #b00000001)
       (make-padded-bitfield-struct :a t :b 1 :c 2 :d (make-bitfield-struct :a t :b 0 :c 3 :d 9 :e -111 :f -32768 :g 127) :e -256))))
 
@@ -118,7 +131,7 @@
   (zero-terminated #.(coerce "" 'simple-string) :type simple-base-string))
 
 (define-test base-string :parent suite
-  (is-parse-equal (base-string-struct)
+  (is-rw-equalp (base-string-struct)
     (#(4 0 0 0 49 50 51 52 48 48 48 48 0)
       (make-base-string-struct
        :length 4
@@ -131,7 +144,7 @@
         :type (simple-array (unsigned-byte 8) (length))))
 
 (define-test simple-array :parent suite
-  (is-parse-equal (simple-array-struct)
+  (is-rw-equalp (simple-array-struct)
     (#(4 1 2 3 4)
       (make-simple-array-struct 
        :length 4 
@@ -146,7 +159,7 @@
   (end 0 :type (unsigned-byte 8)))
 
 (define-test sentinel-terminated-array :parent suite
-  (is-parse-equal (sentinel-terminated-array-struct)
+  (is-rw-equalp (sentinel-terminated-array-struct)
     (#(#x12 #x12 #x12 #x00)
       (make-sentinel-terminated-array-struct
        :data (make-array 3
@@ -163,7 +176,7 @@
   (value 'a :type enum-struct-enum))
 
 (define-test enum :parent suite
-  (is-parse-equal (enum-struct)
+  (is-rw-equalp (enum-struct)
     (#(1) (make-enum-struct :value 'b))))
 
 (defbinstruct tagged-union-struct ()
@@ -174,7 +187,7 @@
                   (c (simple-array (unsigned-byte 8) (4))))))
 
 (define-test tagged-union :parent suite
-  (is-parse-equal (tagged-union-struct)
+  (is-rw-equalp (tagged-union-struct)
     (#(0 116 101 115 116) (make-tagged-union-struct :tag 'a :data (coerce "test" 'simple-base-string)))
     (#(1 42) (make-tagged-union-struct :tag 'b :data 42))
     (#(2 1 2 3 4) (make-tagged-union-struct :tag 'c :data (make-array 4 :element-type '(unsigned-byte 8) :initial-contents '(1 2 3 4))))))
@@ -190,13 +203,13 @@
   (array (make-array 0 :element-type 'pointer-struct) :type (simple-array (pointer (pointer-struct) (unsigned-byte 8) base) (length))))
 
 (define-test pointer :parent suite
-  (is-parse-equal (pointer-struct)
+  (is-rw-equalp (pointer-struct)
     (#(2 4 1 2 3 4)
       (make-pointer-struct
        :array (make-array 4 :element-type '(unsigned-byte 8)
                             :initial-contents '(1 2 3 4))
        :length 4)))
-  (is-parse-equal (pointer-pointer-struct)
+  (is-rw-equalp (pointer-pointer-struct)
     (#(4 8 16 8 16 0 0 0
        4 4 0 0 1 2 3 4
        2 6 1 2 3 4 5 6)
@@ -227,13 +240,13 @@
                                                           (lambda (array) (declare (ignore array)) (= p 8)))))
 
 (define-test subtype :parent suite
-  (is-parse-equal (derived-struct)
+  (is-rw-equalp (derived-struct)
     (#(#x01 #xFF #x02 #x01 #x00 #x00 #x00 #x80 #x7F #xFF #xFF)
       (make-derived-struct :a 1 :b -1 :c 258 :d -2147483648 :e (coerce #(127) '(simple-array (unsigned-byte 8) (*))) :f -1)))
-  (is-parse-equal (derived-derived-struct 2)
+  (is-rw-equalp (derived-derived-struct 2)
     (#(#x01 #xFF #x02 #x01 #x00 #x00 #x00 #x80 #x7F #xFF #xFF #x34 #x12 #x80 #x7F #x7F)
       (make-derived-derived-struct :a 1 :b -1 :c 258 :d -2147483648 :e (coerce #(127) '(simple-array (unsigned-byte 8) (*)))
-                                     :f -1 :g #x1234 :h (coerce #(-128 127) '(simple-array (signed-byte 8) (*)))))))
+                                   :f -1 :g #x1234 :h (coerce #(-128 127) '(simple-array (signed-byte 8) (*)))))))
 
 (defbinstruct empty-struct ())
 
@@ -241,9 +254,9 @@
 
 (define-test empty-struct :parent suite
   (locally (declare #+sbcl (sb-ext:muffle-conditions style-warning))
-    (is-parse-equal (empty-struct)
+    (is-rw-equalp (empty-struct)
       (#() (make-empty-struct)))
-    (is-parse-equal (derived-empty-struct)
+    (is-rw-equalp (derived-empty-struct)
       (#() (make-derived-empty-struct)))))
 
 (defbinstruct typed-struct (magic)
@@ -270,7 +283,7 @@
                                                            (length))))
 
 (define-test or-type :parent suite
-  (is-parse-equal (or-struct)
+  (is-rw-equalp (or-struct)
     (#(4
        #x00
        #x01 #x01
@@ -307,16 +320,16 @@
   (d 0 :type (unsigned-byte 5)))
 
 (define-test cons+list :parent suite
-  (is-parse-equal (list-struct)
+  (is-rw-equalp (list-struct)
     (#(#b11110000 #b10000001 #b10000111)
       (make-list-struct :a (cons 0 15) :b 1 :c (list 64 7) :d 16))))
 
 (defbinstruct skip-struct ()
-  (nil 0 :type (simple-array (unsigned-byte 8) (2)))
+  (nil #.(make-array 2 :element-type '(unsigned-byte 8) :initial-element 0) :type (simple-array (unsigned-byte 8) (2)))
   (a 0 :type (unsigned-byte 8)))
 
 (define-test skip :parent suite
-  (is-parse-equal (skip-struct)
+  (is-rw-equalp (skip-struct)
     (#(0 0 12) (make-skip-struct :a 12))))
 
 (defbinstruct parametric-type-struct (type)
@@ -326,45 +339,45 @@
   (size 0 :type (map null (constantly (- end start)))))
 
 (define-test parametric-type :parent suite
-  (is-parse-equal (parametric-type-struct (unsigned-byte 8))
+  (is-rw-equalp (parametric-type-struct (unsigned-byte 8))
     (#(#x2A)
       (make-parametric-type-struct :body 42 :size 1)))
-  (is-parse-equal (parametric-type-struct (map (unsigned-byte 8) #'1+ #'-))
+  (is-rw-equalp (parametric-type-struct (map (unsigned-byte 8) #'1+ #'1-))
     (#(#x2A)
       (make-parametric-type-struct :body 43 :size 1)))
-  (is-parse-equal (parametric-type-struct (satisfies (unsigned-byte 8) (alexandria:curry #'= #x2A)))
+  (is-rw-equalp (parametric-type-struct (satisfies (unsigned-byte 8) (alexandria:curry #'= #x2A)))
     (#(#x2A)
       (make-parametric-type-struct :body 42 :size 1)))
-  (is-parse-equal (parametric-type-struct (signed-byte 16))
+  (is-rw-equalp (parametric-type-struct (signed-byte 16))
     (#(#x34 #x12)
       (make-parametric-type-struct :body #x1234 :size 2)))
-  (is-parse-equal (parametric-type-struct (unsigned-byte 32))
+  (is-rw-equalp (parametric-type-struct (unsigned-byte 32))
     (#(#x78 #x56 #x34 #x12)
       (make-parametric-type-struct :body #x12345678 :size 4)))
-  (is-parse-equal (parametric-type-struct (boolean))
+  (is-rw-equalp (parametric-type-struct (boolean))
     (#(#x01)
       (make-parametric-type-struct :body t :size 1))
     (#(#x00)
       (make-parametric-type-struct :body nil :size 1)))
-  (is-parse-equal (parametric-type-struct (simple-base-string 4))
+  (is-rw-equalp (parametric-type-struct (simple-base-string 4))
     (#(#x74 #x65 #x73 #x74)
       (make-parametric-type-struct
        :body (coerce "test" 'simple-base-string)
        :size 4)))
-  (is-parse-equal (parametric-type-struct (simple-base-string))
+  (is-rw-equalp (parametric-type-struct (simple-base-string))
     (#(#x74 #x65 #x73 #x74 #x00)
       (make-parametric-type-struct
        :body (coerce "test" 'simple-base-string)
        :size 5)))
-  (is-parse-equal (parametric-type-struct (simple-array (unsigned-byte 8) (4)))
+  (is-rw-equalp (parametric-type-struct (simple-array (unsigned-byte 8) (4)))
     (#(#x01 #x02 #x03 #x04)
       (make-parametric-type-struct
        :body (make-array 4 :element-type '(unsigned-byte 8) :initial-contents '(1 2 3 4))
        :size 4)))
-  (is-parse-equal (parametric-type-struct (enum-struct-enum))
+  (is-rw-equalp (parametric-type-struct (enum-struct-enum))
     (#(#x01)
       (make-parametric-type-struct :body 'b :size 1)))
-  (is-parse-equal (parametric-type-struct (basic-struct))
+  (is-rw-equalp (parametric-type-struct (basic-struct))
     (#(#xFF #xFF #xFF #x00 #xFF #xFF #xFF #xFF)
       (make-parametric-type-struct
        :body (make-basic-struct :a 255 :b -1 :c 255 :d -1)
@@ -420,7 +433,7 @@
   ($nonlocal-base-1 0 :type position))
 
 (define-test nonlocal-pointer :parent suite
-  (is-parse-equal (nonlocal-position-struct-1)
+  (is-rw-equalp (nonlocal-position-struct-1)
     (#(#x03 #x00 #x03 #x01 #x03 #x02 #x03
        #x01 #x02 #x03 #x04 #x05)
       (make-nonlocal-position-struct-1
@@ -435,7 +448,7 @@
                                                     (make-nonlocal-pointer-struct-1
                                                      :array (make-array 3 :element-type '(unsigned-byte 8) :initial-contents '(3 4 5))
                                                      :length 3))))))
-  (is-parse-equal (nonlocal-position-struct-2)
+  (is-rw-equalp (nonlocal-position-struct-2)
     (#(#x03 #x03 #x00 #x04 #x08 #x03 #x01 #x05 #x09 #x03 #x02 #x06 #x0A
        #x61 #x62 #x63 #x00 #x64 #x65 #x66 #x00 #x67 #x68 #x69 #x00)
       (make-nonlocal-position-struct-2
@@ -453,7 +466,7 @@
                                                      :array (make-array 3 :element-type 'simple-base-string
                                                                           :initial-contents (mapcar (rcurry #'coerce 'simple-base-string) '("c" "f" "i")))
                                                      :length 3))))))
-  (is-parse-equal (nonlocal-position-struct-3-1)
+  (is-rw-equalp (nonlocal-position-struct-3-1)
     (#1=#(#x03 #x00 #x01 #x02 #x03 #x04 #x05 #x06 #x07 #x08)
         (make-nonlocal-position-struct-3-1
          . #2=(:length 3
@@ -464,9 +477,9 @@
                                                              :value 7)
                                                             (make-nonlocal-pointer-struct-3
                                                              :value 8)))))))
-  (is-parse-equal (nonlocal-position-struct-3-2)
+  (is-rw-equalp (nonlocal-position-struct-3-2)
     (#1# (make-nonlocal-position-struct-3-2 . #2#)))
-  (is-parse-equal (nonlocal-position-struct-4-1)
+  (is-rw-equalp (nonlocal-position-struct-4-1)
     (#3=#(#x03 #x03 #x00 #x01 #x02 #x03 #x01 #x02 #x03 #x03 #x02 #x03 #x04
           #x05 #x05 #x06 #x06 #x07 #x01 #x02 #x03)
         (make-nonlocal-position-struct-4-1
@@ -484,7 +497,7 @@
                                                              :length 3
                                                              :array (make-array 3 :element-type '(unsigned-byte 8)
                                                                                   :initial-contents '(2 2 3)))))))))
-  (is-parse-equal (nonlocal-position-struct-4-2)
+  (is-rw-equalp (nonlocal-position-struct-4-2)
     (#3# (make-nonlocal-position-struct-4-2 . #4#))))
 
 (defbinstruct position-pointer-struct ()
@@ -493,7 +506,7 @@
   ($base 0 :type (pointer position (unsigned-byte 8) start)))
 
 (define-test position-pointer :parent suite
-  (is-parse-equal (position-pointer-struct)
+  (is-rw-equalp (position-pointer-struct)
     (#(4 2 0 0 0 0 72 101 108 108 111 0) (make-position-pointer-struct :string (coerce "Hello" 'simple-base-string)))))
 
 (defbinstruct local-pointers-in-cons-struct ()
@@ -508,11 +521,11 @@
   ($base2 0 :type position))
 
 (define-test pointer-list :parent suite
-  (is-parse-equal (local-pointers-in-cons-struct)
+  (is-rw-equalp (local-pointers-in-cons-struct)
     (#(#x21 #x01 #x02)
       (make-local-pointers-in-cons-struct
        :cons (cons 1 2))))
-  (is-parse-equal (nonlocal-pointers-in-cons-struct)
+  (is-rw-equalp (nonlocal-pointers-in-cons-struct)
     (#(#x11 #x01 #x02)
       (make-nonlocal-pointers-in-cons-struct
        :cons (cons 1 2)))))
@@ -539,14 +552,14 @@
   ($base2 0 :type position))
 
 (define-test pointer-union :parent suite
-  (is-parse-equal (local-pointers-in-tagged-union-struct)
+  (is-rw-equalp (local-pointers-in-tagged-union-struct)
     (#(0 42)
       (make-local-pointers-in-tagged-union-struct :tag 0 :data 42))
     (#(1 4 3 1 2 3 4)
       (make-local-pointers-in-tagged-union-struct
        :tag 1 :length 4
        :data (make-array 4 :element-type '(unsigned-byte 8) :initial-contents '(1 2 3 4)))))
-  (is-parse-equal (nonlocal-pointers-in-tagged-union-struct)
+  (is-rw-equalp (nonlocal-pointers-in-tagged-union-struct)
     (#(0 42)
       (make-nonlocal-pointers-in-tagged-union-struct :tag 0 :data 42))
     (#(1 3 1 4 1 2 3 4)

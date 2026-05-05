@@ -13,35 +13,44 @@
                (:file "common" :depends-on ("package"))
                (:file "place" :depends-on ("package"))
                (:file "reader" :depends-on ("package" "common" "place"))
-               (:file "macro" :depends-on ("package" "common" "reader" "place"))
+               (:file "writer" :depends-on ("package"))
+               (:file "macro" :depends-on ("package" "common" "reader" "place" "writer"))
                (:module "type"
                 :components ((:file "default")
                              (:module "condition"
-                              :components ((:file "reader")))
+                              :components ((:file "reader")
+                                           (:file "writer")))
                              (:module "integer"
-                              :components ((:file "reader")))
+                              :components ((:file "reader")
+                                           (:file "writer")))
                              (:module "boolean"
-                              :components ((:file "reader"))
+                              :components ((:file "reader")
+                                           (:file "writer"))
                               :depends-on ("integer"))
                              (:module "pointer"
-                              :components ((:file "reader"))
+                              :components ((:file "reader")
+                                           (:file "writer"))
                               :depends-on ("integer" "default"))
                              (:module "array"
                               :components ((:file "reader")
-                                           (:file "reader-optimize" :depends-on ("reader")))
+                                           (:file "reader-optimize" :depends-on ("reader"))
+                                           (:file "writer"))
                               :depends-on ("default"))
                              (:module "string"
-                              :components ((:file "reader"))
+                              :components ((:file "reader")
+                                           (:file "writer"))
                               :depends-on ("integer"))
                              (:module "map"
-                              :components ((:file "reader")))
+                              :components ((:file "reader")
+                                           (:file "writer")))
                              (:module "list"
-                              :components ((:file "reader"))))
+                              :components ((:file "reader")
+                                           (:file "writer"))))
                 :depends-on ("package" "common" "reader" "place")))
   :in-order-to ((test-op (test-op #:binstruct/test))))
 
 (defsystem binstruct/test
-  :depends-on (#:binstruct #:parachute)
+  :depends-on (#:binstruct #:parachute #:flexi-streams)
   :pathname "test/"
   :components ((:file "package")
                (:file "bmp" :depends-on ("package")))
