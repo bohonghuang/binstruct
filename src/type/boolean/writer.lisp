@@ -1,6 +1,6 @@
 (in-package #:binstruct)
 
-(defmethod expand-write-type-expr ((name (eql 'boolean)) &rest args)
+(defmethod expand-writer-type-expr ((name (eql 'boolean)) &rest args)
   (destructuring-bind (&optional (type '(unsigned-byte 8))) args
     (let ((*value* `(plusp ,*value*)))
-      (expand-write-type type))))
+      (expand-writer-type type))))

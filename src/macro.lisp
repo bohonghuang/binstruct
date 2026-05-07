@@ -117,7 +117,20 @@
                           . ,(cdr include))
                         `(,parser ,next . ,(parsonic::lambda-list-arguments lambda-list))))
                  (defparser ,name ,lambda-list
-                   (,derive #',constructor . ,(parsonic::lambda-list-arguments lambda-list)))))))))))
+                   (,derive #',constructor . ,(parsonic::lambda-list-arguments lambda-list))))
+               ,(with-gensyms (output)
+                  (let ((*output* output))
+                    `(defun ,(emitter-name-symbol name) (,output ,self . ,args)
+                       ,(when include
+                          (let ((*value* self))
+                            (expand-writer-type include)))
+                       (let* ,(loop :with *package* := (symbol-package name)
+                                    :for slot :in all-defstruct-slots
+                                    :for slot-name := (slot-name slot)
+                                    :collect `(,slot-name (,(symbolicate name '- slot-name) ,self)))
+                         ,@(loop :for slot :in slots
+                                 :for *value* := (slot-name slot)
+                                 :collect (expand-writer-type (getf slot :type))))))))))))))
 
 (define-condition deserialize-error (parse-error)
   ((input :initarg :input :reader deserialize-error-input)
