@@ -34,7 +34,12 @@
                (defmethod expand-reader-type-expr ((name (eql ',name)) &rest ,args)
                  (destructuring-bind ,lambda-list ,args
                    `(for ((,',value ,(let ,(when endianp `((*endian* ,endian))) (expand-reader-type ',type))))
-                      (,',unpack ,',value)))))))))))
+                      (,',unpack ,',value)))))
+             (defmethod expand-writer-type-expr ((name (eql ',name)) &rest ,args)
+               (destructuring-bind ,lambda-list ,args
+                 (let ((*value* `(,',pack ,,'*value*))
+                       . ,(when endianp `((*endian* ,endian))))
+                   (expand-writer-type ',type))))))))))
 
 (defmacro defbinstruct (name-and-options lambda-list &rest slots)
   (destructuring-bind (name &rest options &aux (*package* (symbol-package name))) (ensure-list name-and-options)
@@ -119,18 +124,26 @@
                  (defparser ,name ,lambda-list
                    (,derive #',constructor . ,(parsonic::lambda-list-arguments lambda-list))))
                ,(with-gensyms (output)
-                  (let ((*output* output))
-                    `(defun ,(emitter-name-symbol name) (,output ,self . ,args)
+                  (let ((*output* output)
+                        (*offset* 0))
+                    `(defun ,(emitter-name-symbol name) (,output ,self . ,lambda-list)
+                       (declare (dynamic-extent ,output)
+                                (ignorable ,output ,self . ,(remove-if #'keywordp (parsonic::lambda-list-arguments lambda-list))))
                        ,(when include
                           (let ((*value* self))
                             (expand-writer-type include)))
-                       (let* ,(loop :with *package* := (symbol-package name)
-                                    :for slot :in all-defstruct-slots
-                                    :for slot-name := (slot-name slot)
-                                    :collect `(,slot-name (,(symbolicate name '- slot-name) ,self)))
-                         ,@(loop :for slot :in slots
-                                 :for *value* := (slot-name slot)
-                                 :collect (expand-writer-type (getf slot :type))))))))))))))
+                       ,(let ((bindings (loop :with *package* := (symbol-package name)
+                                              :for slot :in all-defstruct-slots
+                                              :for slot-name := (slot-name slot)
+                                              :collect `(,slot-name (,(symbolicate name '- slot-name) ,self)))))
+                          `(let ,bindings
+                             (declare (ignorable . ,(mapcar #'first bindings)))
+                             ,@(loop :for slot :in slots
+                                     :for (name initform . options) := slot
+                                     :for type := (getf slot :type)
+                                     :for *value* := (if (slot-excluded-p slot) initform name)
+                                     :collect (expand-writer-type type))
+                             ,(finish-writer-partial-byte)))))))))))))
 
 (define-condition deserialize-error (parse-error)
   ((input :initarg :input :reader deserialize-error-input)

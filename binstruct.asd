@@ -13,8 +13,8 @@
                (:file "common" :depends-on ("package"))
                (:file "place" :depends-on ("package"))
                (:file "reader" :depends-on ("package" "common" "place"))
-               (:file "macro" :depends-on ("package" "common" "reader" "place"))
                (:file "writer" :depends-on ("package"))
+               (:file "macro" :depends-on ("package" "common" "reader" "place" "writer"))
                (:module "type"
                 :components ((:file "default")
                              (:module "condition"

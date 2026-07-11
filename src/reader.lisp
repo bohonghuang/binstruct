@@ -1,12 +1,12 @@
 (in-package #:binstruct)
 
-(defun finish-partial-byte ()
+(defun finish-reader-partial-byte ()
   (unless (integerp *offset*)
     (nconcf *bindings* (list `(nil ,(expand-reader-type `(unsigned-byte ,(* (- (ceiling *offset*) *offset*) 8))))))))
 
 (defgeneric expand-reader-type-expr (name &rest args)
   (:method (name &rest args)
-    (finish-partial-byte)
+    (finish-reader-partial-byte)
     (cons name args)))
 
 (defun expand-reader-type (desc)
@@ -38,14 +38,14 @@
                             :finally
                                (setf bindings parent-bindings)
                                (nconcf *bindings* new-bindings))
-                      (finish-partial-byte))
+                      (finish-reader-partial-byte))
                   (return *bindings*))
     (when (consp bindings)
       (nconcf *bindings* bindings))))
 
 (defun expand-reader-type-unit (type &key (endian :little) (offset 0))
   (when (and (boundp '*offset*) (boundp '*bindings*))
-    (finish-partial-byte))
+    (finish-reader-partial-byte))
   (with-gensyms (unit null value setter)
     (let ((*endian* endian)
           (*offset* offset)

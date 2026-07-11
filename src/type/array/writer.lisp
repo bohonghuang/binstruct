@@ -5,4 +5,9 @@
     (declare (ignore length))
     (with-gensyms (element)
       `(loop :for ,element :across ,*value*
-             :do (progn ,(expand-writer-type element-type))))))
+             :do (progn
+                   ,(let ((*value* element))
+                      (expand-writer-type element-type)))))))
+
+(defmethod expand-writer-type-expr ((name (eql 'simple-array)) &rest args)
+  (apply #'expand-writer-type-expr 'array args))
