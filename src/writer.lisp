@@ -2,6 +2,7 @@
 
 (defvar *value*)
 (defvar *output*)
+(defvar *inline*)
 
 (deftype emitter ()
   '(function (emitter-output &rest t)))
@@ -22,6 +23,14 @@
 (defun (setf emitter-output-position) (target output)
   (funcall output #.(make-array 0 :element-type '(unsigned-byte 8)) target))
 
+(defun stream-emitter-output (stream)
+  (lambda (data &optional position)
+    (if position
+        (file-position stream position)
+        (etypecase data
+          ((simple-array (unsigned-byte 8) (*)) (write-sequence data stream) (file-position stream))
+          ((unsigned-byte 8) (write-byte data stream))))))
+
 (define-constant +emitter-name-prefix+ (string '#:emitter/) :test #'string=)
 
 (defun emitter-name-symbol (name &optional (intern t))
@@ -37,3 +46,19 @@
 
 (defun expand-writer-type (desc)
   (apply #'expand-writer-type-expr (ensure-list desc)))
+
+(defmethod expand-writer-type-expr ((name (eql 'inline)) &rest args)
+  (destructuring-bind (type) args
+    (push type *inline*)
+    `(funcall ,type ,*output* ,*value*)))
+
+(defun expand-writer-type-unit (type &key (endian :little) (offset 0) (output *output*) (value *value*))
+  (once-only (output value)
+    (let ((*endian* endian)
+          (*offset* offset)
+          (*output* output)
+          (*value* value)
+          (*slots* nil))
+      `(progn
+         ,output ,value
+         ,(expand-writer-type type)))))

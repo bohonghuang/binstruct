@@ -15,7 +15,7 @@
                           :for (name value) := (ensure-list field)
                           :for integer := (or value 0) :then (or value (1+ integer))
                           :collect (list name integer))))
-        (with-gensyms (value args)
+        (with-gensyms (op value args)
           `(progn
              (deftype ,name ()
                '(member . ,(mapcar #'first fields)))
@@ -31,15 +31,15 @@
                (for ((,value ,(expand-reader-type-unit type)))
                  (,unpack ,value)))
              (eval-when (:compile-toplevel :load-toplevel :execute)
-               (defmethod expand-reader-type-expr ((name (eql ',name)) &rest ,args)
+               (defmethod expand-reader-type-expr ((,op (eql ',name)) &rest ,args)
                  (destructuring-bind ,lambda-list ,args
                    `(for ((,',value ,(let ,(when endianp `((*endian* ,endian))) (expand-reader-type ',type))))
-                      (,',unpack ,',value)))))
-             (defmethod expand-writer-type-expr ((name (eql ',name)) &rest ,args)
-               (destructuring-bind ,lambda-list ,args
-                 (let ((*value* `(,',pack ,,'*value*))
-                       . ,(when endianp `((*endian* ,endian))))
-                   (expand-writer-type ',type))))))))))
+                      (,',unpack ,',value))))
+               (defmethod expand-writer-type-expr ((,op (eql ',name)) &rest ,args)
+                 (destructuring-bind ,lambda-list ,args
+                   (let ((*value* `(,',pack ,,'*value*))
+                         . ,(when endianp `((*endian* ,endian))))
+                     (expand-writer-type ',type)))))))))))
 
 (defmacro defbinstruct (name-and-options lambda-list &rest slots)
   (destructuring-bind (name &rest options &aux (*package* (symbol-package name))) (ensure-list name-and-options)
@@ -123,27 +123,49 @@
                         `(,parser ,next . ,(parsonic::lambda-list-arguments lambda-list))))
                  (defparser ,name ,lambda-list
                    (,derive #',constructor . ,(parsonic::lambda-list-arguments lambda-list))))
-               ,(with-gensyms (output)
+               ,(with-gensyms (output positions)
                   (let ((*output* output)
-                        (*offset* 0))
-                    `(defun ,(emitter-name-symbol name) (,output ,self . ,lambda-list)
-                       (declare (dynamic-extent ,output)
-                                (ignorable ,output ,self . ,(remove-if #'keywordp (parsonic::lambda-list-arguments lambda-list))))
-                       ,(when include
-                          (let ((*value* self))
-                            (expand-writer-type include)))
-                       ,(let ((bindings (loop :with *package* := (symbol-package name)
-                                              :for slot :in all-defstruct-slots
-                                              :for slot-name := (slot-name slot)
-                                              :collect `(,slot-name (,(symbolicate name '- slot-name) ,self)))))
-                          `(let ,bindings
-                             (declare (ignorable . ,(mapcar #'first bindings)))
-                             ,@(loop :for slot :in slots
-                                     :for (name initform . options) := slot
-                                     :for type := (getf slot :type)
-                                     :for *value* := (if (slot-excluded-p slot) initform name)
-                                     :collect (expand-writer-type type))
-                             ,(finish-writer-partial-byte)))))))))))))
+                        (*offset* 0)
+                        (*inline* nil))
+                    `(progn
+                       (defun ,(emitter-name-symbol name) (,output ,self . ,lambda-list)
+                         (declare (dynamic-extent ,output)
+                                  (ignorable ,output ,self . ,(remove-if #'keywordp (parsonic::lambda-list-arguments lambda-list))))
+                         (let ((,positions *positions*))
+                           ,(when include
+                              `(progn
+                                 ,(let ((*value* self))
+                                    (expand-writer-type include))
+                                 (derive-pointer-positions ,positions)))
+                           ,(let ((bindings (loop :with *package* := (symbol-package name)
+                                                  :for slot :in all-slots
+                                                  :for (slot-name slot-initform . slot-options) := slot
+                                                  :when slot-name
+                                                    :collect `(,slot-name ,(if (slot-excluded-p slot) slot-initform `(,(symbolicate name '- slot-name) ,self))))))
+                              `(let ,bindings
+                                 (declare (ignorable . ,(mapcar #'first bindings)))
+                                 ,@(loop :for *slots* :on slots
+                                         :for (slot) := *slots*
+                                         :for (name initform . options) := slot
+                                         :for *value* := (or name initform)
+                                         :collect (expand-writer-type (getf options :type)))
+                                 ,(finish-writer-partial-byte)))
+                           (resolve-pointer-positions ,positions)))
+                       ,(when *inline*
+                          (with-gensyms (op args)
+                            `(eval-when (:compile-toplevel :load-toplevel :execute)
+                               (defmethod expand-writer-type-expr ((,op (eql ',name)) &rest ,args)
+                                 (destructuring-bind ,lambda-list ,args
+                                   (call-next-method
+                                    ,op . ,(loop :for arg :in (parsonic::lambda-list-arguments lambda-list)
+                                                 :if (member arg *inline*)
+                                                   :collect (with-gensyms (output value)
+                                                              `(with-gensyms (,output ,value)
+                                                                 `(lambda (,,output ,,value)
+                                                                    ,(let ((*output* ,output) (*value* ,value))
+                                                                       (expand-writer-type ,arg)))))
+                                                 :else
+                                                   :collect arg)))))))))))))))))
 
 (define-condition deserialize-error (parse-error)
   ((input :initarg :input :reader deserialize-error-input)

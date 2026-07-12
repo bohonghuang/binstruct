@@ -6,20 +6,33 @@
 
 (define-test suite)
 
-(defmacro is-parse-equal (parser &body tests)
-  (with-gensyms (input)
-    (let ((eval (make-symbol (format nil "~A [~A]" parser 'eval)))
-          (compiled (make-symbol (format nil "~A [~A]" parser 'compiled))))
-      `(let ((,eval (lambda (,input) (parser-run (parser ,parser) ,input)))
-             (,compiled (lambda (,input) (parser-run (parser ,parser) (the (simple-array (unsigned-byte 8) (*)) ,input)))))
+(defmacro is-parse-equal (struct &body tests)
+  (with-gensyms (input output)
+    (let ((reader-eval (make-symbol (format nil "~A [~A]" struct '#:reader/eval)))
+          (reader-compiled (make-symbol (format nil "~A [~A]" struct '#:reader/compiled)))
+          (writer-eval (make-symbol (format nil "~A [~A]" struct '#:writer-eval)))
+          (writer-compiled (make-symbol (format nil "~A [~A]" struct '#:writer-compiled))))
+      `(let* ((,reader-eval (lambda (,input) (parser-run (parser ,struct) ,input)))
+              (,reader-compiled (lambda (,input) (parser-run (parser ,struct) (the (simple-array (unsigned-byte 8) (*)) ,input)))))
          ,@(loop :for (input expected) :in tests
                  :for bytes := (make-symbol (format nil "~A" input))
                  :collect (once-only (expected)
-                            `(let ((,bytes (coerce ,input '(simple-array (unsigned-byte 8) (*)))))
-                               (let ((binstruct::*positions* nil))
-                                 (is equalp ,expected (funcall ,eval ,bytes)))
-                               (let ((binstruct::*positions* nil))
-                                 (is equalp ,expected (funcall ,compiled ,bytes))))))))))
+                            `(progn
+                               (let ((,bytes (coerce ,input '(simple-array (unsigned-byte 8) (*)))))
+                                 (let ((binstruct::*positions* nil))
+                                   (is equalp ,expected (funcall ,reader-eval ,bytes)))
+                                 (let ((binstruct::*positions* nil))
+                                   (is equalp ,expected (funcall ,reader-compiled ,bytes)))
+                                 (let ((,output (flex:make-in-memory-output-stream)))
+                                   (let ((binstruct::*positions* nil))
+                                     ,(binstruct::expand-writer-type-unit struct :output `(binstruct::stream-emitter-output ,output) :value expected)
+                                     (binstruct::flush-pointer-positions))
+                                   (let* ((,writer-eval (coerce (flex:get-output-stream-sequence ,output) '(simple-array (unsigned-byte 8) (*))))
+                                          (,writer-compiled ,writer-eval))
+                                     (let ((binstruct::*positions* nil))
+                                       (is equalp ,expected (funcall ,reader-eval ,writer-eval)))
+                                     (let ((binstruct::*positions* nil))
+                                       (is equalp ,expected (funcall ,reader-compiled ,writer-compiled)))))))))))))
 
 (defbinstruct basic-struct ()
   (a 0 :type (unsigned-byte 8))
@@ -312,10 +325,10 @@
       (make-list-struct :a (cons 0 15) :b 1 :c (list 64 7) :d 16))))
 
 (defbinstruct skip-struct ()
-  (nil 0 :type (simple-array (unsigned-byte 8) (2)))
+  (nil #.(make-array 2 :element-type '(unsigned-byte 8) :initial-element 0) :type (simple-array (unsigned-byte 8) (2)))
   (a 0 :type (unsigned-byte 8)))
 
-(define-test skip :parent suite
+(define-test+run skip :parent suite
   (is-parse-equal (skip-struct)
     (#(0 0 12) (make-skip-struct :a 12))))
 
@@ -329,7 +342,7 @@
   (is-parse-equal (parametric-type-struct (unsigned-byte 8))
     (#(#x2A)
       (make-parametric-type-struct :body 42 :size 1)))
-  (is-parse-equal (parametric-type-struct (map (unsigned-byte 8) #'1+ #'-))
+  (is-parse-equal (parametric-type-struct (map (unsigned-byte 8) #'1+ #'1-))
     (#(#x2A)
       (make-parametric-type-struct :body 43 :size 1)))
   (is-parse-equal (parametric-type-struct (satisfies (unsigned-byte 8) (alexandria:curry #'= #x2A)))

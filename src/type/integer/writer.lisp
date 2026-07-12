@@ -13,7 +13,7 @@
 
 (declaim (ftype (function (emitter-output non-negative-integer non-negative-fixnum)) emit-unsigned-integer/be))
 (defun emit-unsigned-integer/be (output integer n)
-  (loop :for shift :of-type non-negative-fixnum :downfrom (- n 8) :to 0 :by 8
+  (loop :for shift :of-type #+sbcl fixnum #-sbcl non-negative-fixnum :downfrom (- n 8) :to 0 :by 8
         :do (emitter-output-byte output (ldb (byte 8 shift) integer))))
 
 (defmethod expand-writer-type-expr ((name (eql 'signed-byte)) &rest args)
