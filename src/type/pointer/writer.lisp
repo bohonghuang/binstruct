@@ -5,7 +5,9 @@
     (when-let ((cons (assoc name *positions*)))
       (let ((position-cons (last (cdr cons))))
         (if (eq (car position-cons) #'values)
-            (return-from push-pointer-position (setf (car position-cons) (constantly position)))
+            (return-from push-pointer-position
+              (setf (car position-cons) (constantly position)
+                    (cdr cons) (copy-cons (cdr cons))))
             (setf (car cons) (funcall (car position-cons))
                   (cdr cons) (cons (constantly name) (nbutlast (cdr cons)))))))
     (push (cons name (list (constantly position))) *positions*)))
@@ -25,8 +27,12 @@
           :for (pointer . handlers) := cons
           :until (eq current-positions end)
           :if (and (symbolp pointer) (funcall predicate pointer))
-            :collect (cons pointer (last handlers)) :into next
-            :and :collect (cons (funcall (lastcar handlers)) (cons (constantly pointer) (nbutlast handlers))) :into current
+            :if (funcall (lastcar handlers))
+              :collect (cons pointer (last handlers)) :into next
+              :and :collect (cons (funcall (lastcar handlers)) (cons (constantly pointer) (nbutlast handlers))) :into current
+            :else
+              :collect cons :into next
+            :end
           :else
             :unless (eql pointer -1)
               :collect cons :into previous
@@ -49,7 +55,7 @@
 (defun flush-pointer-positions ()
   (loop
     (loop :with next := (resolve-pointer-positions nil #'values)
-          :for (position . handlers) :in (shiftf *positions* (mapcar #'buffered-streams::copy-cons next))
+          :for (position . handlers) :in (shiftf *positions* (mapcar #'copy-cons next))
           :do (loop :for handler :in handlers
                     :do (funcall handler position))
           :finally
