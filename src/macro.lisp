@@ -137,13 +137,13 @@
                                  ,(let ((*value* self))
                                     (expand-writer-type include))
                                  (derive-pointer-positions ,positions)))
-                           ,(let ((bindings (loop :with *package* := (symbol-package name)
-                                                  :for slot :in all-slots
-                                                  :for (slot-name slot-initform . slot-options) := slot
-                                                  :when slot-name
-                                                    :collect `(,slot-name ,(if (slot-excluded-p slot) slot-initform `(,(symbolicate name '- slot-name) ,self))))))
-                              `(let ,bindings
-                                 (declare (ignorable . ,(mapcar #'first bindings)))
+                           ,(let ((*bindings* (loop :with *package* := (symbol-package name)
+                                                    :for slot :in all-slots
+                                                    :for (slot-name slot-initform . slot-options) := slot
+                                                    :when slot-name
+                                                      :collect `(,slot-name ,(if (slot-excluded-p slot) slot-initform `(,(symbolicate name '- slot-name) ,self))))))
+                              `(let ,*bindings*
+                                 (declare (ignorable . ,(mapcar #'first *bindings*)))
                                  ,@(loop :for *slots* :on slots
                                          :for (slot) := *slots*
                                          :for (name initform . options) := slot

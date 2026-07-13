@@ -1,24 +1,38 @@
 (in-package #:binstruct)
 
-(defun resolve-pointer-position (name)
-  (when-let ((cons (assoc name *positions*)))
-    (setf (car cons) (funcall (lastcar (cdr cons)))
-          (cdr cons) (nbutlast (cdr cons)))))
+(defun push-pointer-position (name position)
+  (when (global-position-p name)
+    (when-let ((cons (assoc name *positions*)))
+      (let ((position-cons (last (cdr cons))))
+        (if (eq (car position-cons) #'values)
+            (return-from push-pointer-position (setf (car position-cons) (constantly position)))
+            (setf (car cons) (funcall (car position-cons))
+                  (cdr cons) (cons (constantly name) (nbutlast (cdr cons)))))))
+    (push (cons name (list (constantly position))) *positions*)))
+
+(defun local-pointer-position (name)
+  (loop :for (pointer . handlers) :in *positions*
+        :while (symbolp pointer)
+        :when (eq pointer name)
+          :return (funcall (lastcar handlers))))
 
 (defun resolve-pointer-positions (&optional end (predicate (complement #'global-position-p)))
   (let ((positions *positions*))
     (when (eq positions end)
-      (return-from resolve-pointer-positions positions))
+      (return-from resolve-pointer-positions))
     (loop :for current-positions :on positions
           :for (cons) := current-positions
-          :for (name . handlers) := cons
+          :for (pointer . handlers) := cons
           :until (eq current-positions end)
-          :if (and (symbolp name) (funcall predicate name))
-            :collect (cons (funcall (lastcar handlers)) (cons (constantly name) (nbutlast handlers))) :into current
+          :if (and (symbolp pointer) (funcall predicate pointer))
+            :collect (cons pointer (last handlers)) :into next
+            :and :collect (cons (funcall (lastcar handlers)) (cons (constantly pointer) (nbutlast handlers))) :into current
           :else
-            :unless (eql name -1)
+            :unless (eql pointer -1)
               :collect cons :into previous
-          :finally (setf *positions* (nconc current (list (cons -1 (list #'values))) previous current-positions)))))
+          :finally
+             (setf *positions* (nconc current (list (cons -1 (list #'values))) previous current-positions))
+             (return next))))
 
 (defun derive-pointer-positions (&optional end)
   (let ((positions *positions*))
@@ -33,11 +47,15 @@
                     (cdr cons) (nconc (cdr handlers) (list (constantly position)))))))
 
 (defun flush-pointer-positions ()
-  (resolve-pointer-positions nil #'values)
-  (loop :while *positions*
-        :do (loop :for (position . handlers) :in (shiftf *positions* nil)
-                  :do (loop :for handler :in handlers
-                            :do (funcall handler position)))))
+  (loop
+    (loop :with next := (resolve-pointer-positions nil #'values)
+          :for (position . handlers) :in (shiftf *positions* (mapcar #'buffered-streams::copy-cons next))
+          :do (loop :for handler :in handlers
+                    :do (funcall handler position))
+          :finally
+             (when (loop :for (pointer . handlers) :in *positions*
+                         :always (eq (assoc-value next pointer) handlers))
+               (return-from flush-pointer-positions)))))
 
 (defmethod expand-writer-type-expr ((name (eql 'peek)) &rest args)
   (declare (ignore args)))
@@ -45,23 +63,26 @@
 (defmethod expand-writer-type-expr ((name (eql 'position)) &rest args)
   (declare (ignore args))
   (when-let ((name (slot-name (first *slots*))))
-    (with-gensyms (position)
-      `(let ((,position (setf ,name (emitter-output-position ,*output*))))
-         ,(when (global-position-p name)
-            `(resolve-pointer-position ',name))
-         (push (cons ',name (list (constantly ,position))) *positions*)))))
+    `(push-pointer-position ',name (setf ,name (emitter-output-position ,*output*)))))
 
 (defmethod expand-writer-type-expr ((name (eql 'pointer)) &rest args)
   (destructuring-bind (data-type pointer-type &optional (base 0)) args
-    (with-gensyms (position offset)
+    (with-gensyms (position offset handlers)
+      (unless (global-position-p base)
+        (when-let ((binding (assoc base *bindings*)))
+          (setf (second binding) `(local-pointer-position ',base))))
       (once-only (*value*)
-        `(let ((,position (emitter-output-position ,*output*)))
-           (push
-            (lambda (,offset)
-              (let ((,position (shiftf (emitter-output-position ,*output*) ,position)))
-                ,(expand-writer-type-unit pointer-type :value `(- ,position ,offset))
-                (setf (emitter-output-position ,*output*) ,position))
-              ,(expand-writer-type-unit data-type))
-            (assoc-value *positions* ',base))
+        `(let* ((,position (emitter-output-position ,*output*))
+                (,handlers (push
+                            (lambda (,offset)
+                              (let ((,position (shiftf (emitter-output-position ,*output*) ,position)))
+                                ,(expand-writer-type-unit pointer-type :value `(- ,position ,offset))
+                                (setf (emitter-output-position ,*output*) ,position))
+                              ,(expand-writer-type-unit data-type))
+                            ,(if (global-position-p base)
+                                 `(assoc-value *positions* ',base)
+                                 `(assoc-value *positions* ,base)))))
+           (unless (cdr ,handlers)
+             (setf (cdr ,handlers) (list #'values)))
            ,(let ((*value* (type-default-value pointer-type)))
               (expand-writer-type pointer-type)))))))

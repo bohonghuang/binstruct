@@ -328,7 +328,7 @@
   (nil #.(make-array 2 :element-type '(unsigned-byte 8) :initial-element 0) :type (simple-array (unsigned-byte 8) (2)))
   (a 0 :type (unsigned-byte 8)))
 
-(define-test+run skip :parent suite
+(define-test skip :parent suite
   (is-parse-equal (skip-struct)
     (#(0 0 12) (make-skip-struct :a 12))))
 
