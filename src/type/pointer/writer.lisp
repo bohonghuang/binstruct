@@ -78,7 +78,7 @@
                               (let ((,position (shiftf (emitter-output-position ,*output*) ,position)))
                                 ,(expand-writer-type-unit pointer-type :value `(- ,position ,offset))
                                 (setf (emitter-output-position ,*output*) ,position))
-                              ,(expand-writer-type-unit data-type))
+                              ,(expand-writer-type-unit data-type :slots *slots*))
                             ,(if (global-position-p base)
                                  `(assoc-value *positions* ',base)
                                  `(assoc-value *positions* ,base)))))

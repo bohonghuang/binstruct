@@ -52,13 +52,13 @@
     (push type *inline*)
     `(funcall ,type ,*output* ,*value*)))
 
-(defun expand-writer-type-unit (type &key (endian :little) (offset 0) (output *output*) (value *value*))
+(defun expand-writer-type-unit (type &key (endian :little) (offset 0) (output *output*) (value *value*) (slots nil))
   (once-only (output value)
     (let ((*endian* endian)
           (*offset* offset)
           (*output* output)
           (*value* value)
-          (*slots* nil))
+          (*slots* slots))
       `(progn
          ,output ,value
          ,(expand-writer-type type)))))
