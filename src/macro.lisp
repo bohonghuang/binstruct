@@ -129,8 +129,7 @@
                         (*inline* nil))
                     `(progn
                        (defun ,(emitter-name-symbol name) (,output ,self . ,lambda-list)
-                         (declare (dynamic-extent ,output)
-                                  (ignorable ,output ,self . ,(remove-if #'keywordp (parsonic::lambda-list-arguments lambda-list))))
+                         (declare (ignorable ,output ,self . ,(remove-if #'keywordp (parsonic::lambda-list-arguments lambda-list))))
                          (let ((,positions *positions*))
                            ,(when include
                               `(progn

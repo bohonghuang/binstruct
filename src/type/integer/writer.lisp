@@ -28,7 +28,8 @@
 (declaim (inline make-writer-bitfield))
 (defstruct writer-bitfield
   (output nil :type t)
-  (value nil :type integer))
+  (value nil :type integer)
+  (size 0 :type non-negative-fixnum))
 
 (defun finish-writer-partial-byte ()
   (when-let ((offset (shiftf (get *output* 'offset) nil)))
@@ -51,5 +52,9 @@
            (setf (ldb (byte ,n ,(* (- offset (get *output* 'offset)) 8)) (writer-bitfield-value ,*output*)) ,*value*)
            ,(when (integerp *offset*)
               `(progn
-                 (,(unsigned-integer-emitter) (writer-bitfield-output ,*output*) (writer-bitfield-value ,*output*) ,(* (- *offset* (shiftf (get *output* 'offset) nil)) 8))
+                 (,(unsigned-integer-emitter) (writer-bitfield-output ,*output*)
+                  (writer-bitfield-value ,*output*) ,(let ((bytes (- *offset* (shiftf (get *output* 'offset) nil))))
+                                                       (if (integerp bytes)
+                                                           `(setf (writer-bitfield-size ,*output*) ,(* bytes 8))
+                                                           `(writer-bitfield-size ,*output*))))
                  (setf ,*output* (writer-bitfield-output ,*output*))))))))
