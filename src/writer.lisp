@@ -31,6 +31,12 @@
           ((simple-array (unsigned-byte 8) (*)) (write-sequence data stream) (file-position stream))
           ((unsigned-byte 8) (write-byte data stream))))))
 
+(defgeneric ensure-emitter-output (object)
+  (:method ((function function))
+    function)
+  (:method ((stream stream))
+    (stream-emitter-output stream)))
+
 (define-constant +emitter-name-prefix+ (string '#:emitter/) :test #'string=)
 
 (defun emitter-name-symbol (name &optional (intern t))

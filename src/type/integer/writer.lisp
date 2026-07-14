@@ -25,18 +25,21 @@
     (:little 'emit-unsigned-integer/le)
     (:big 'emit-unsigned-integer/be)))
 
-(declaim (inline make-writer-bitfield))
-(defstruct writer-bitfield
+(declaim (inline make-emitter-bitfield-output))
+(defstruct emitter-bitfield-output
   (output nil :type t)
   (value nil :type integer)
   (size 0 :type non-negative-fixnum))
 
+(defmethod ensure-emitter-output ((output emitter-bitfield-output))
+  (emitter-bitfield-output-output output))
+
 (defun finish-writer-partial-byte ()
   (when-let ((offset (shiftf (get *output* 'offset) nil)))
     `(progn
-       (,(unsigned-integer-emitter) (writer-bitfield-output ,*output*)
-        (writer-bitfield-value ,*output*) ,(* (- (setf *offset* (ceiling *offset*)) offset) 8))
-       (setf ,*output* (writer-bitfield-output ,*output*)))))
+       (,(unsigned-integer-emitter) (emitter-bitfield-output-output ,*output*)
+        (emitter-bitfield-output-value ,*output*) ,(* (- (setf *offset* (ceiling *offset*)) offset) 8))
+       (setf ,*output* (emitter-bitfield-output-output ,*output*)))))
 
 (defmethod expand-writer-type-expr ((name (eql 'unsigned-byte)) &rest args)
   (destructuring-bind (n) args
@@ -49,14 +52,14 @@
               (progn
                 (assert (null (get *output* 'offset)))
                 (setf (get *output* 'offset) offset)
-                `(setf ,*output* (make-writer-bitfield :output ,*output* :value ,*value*))))
+                `(setf ,*output* (make-emitter-bitfield-output :output ,*output* :value ,*value*))))
           `(progn
-             (setf (ldb (byte ,n ,(* (- offset start) 8)) (writer-bitfield-value ,*output*)) ,*value*)
+             (setf (ldb (byte ,n ,(* (- offset start) 8)) (emitter-bitfield-output-value ,*output*)) ,*value*)
              ,(when (integerp *offset*)
                 `(progn
-                   (,(unsigned-integer-emitter) (writer-bitfield-output ,*output*)
-                    (writer-bitfield-value ,*output*) ,(let ((bytes (- *offset* (shiftf (get *output* 'offset) nil))))
+                   (,(unsigned-integer-emitter) (emitter-bitfield-output-output ,*output*)
+                    (emitter-bitfield-output-value ,*output*) ,(let ((bytes (- *offset* (shiftf (get *output* 'offset) nil))))
                                                          (if (integerp bytes)
-                                                             `(setf (writer-bitfield-size ,*output*) ,(* bytes 8))
-                                                             `(writer-bitfield-size ,*output*))))
-                   (setf ,*output* (writer-bitfield-output ,*output*)))))))))
+                                                             `(setf (emitter-bitfield-output-size ,*output*) ,(* bytes 8))
+                                                             `(emitter-bitfield-output-size ,*output*))))
+                   (setf ,*output* (emitter-bitfield-output-output ,*output*)))))))))

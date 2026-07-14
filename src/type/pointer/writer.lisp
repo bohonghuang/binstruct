@@ -3,12 +3,12 @@
 (defun push-pointer-position (name position)
   (when (global-position-p name)
     (when-let ((cons (assoc name *positions*)))
-      (let ((position-cons (last (cdr cons))))
-        (if (eq (car position-cons) #'values)
+      (let ((last (last (cdr cons))))
+        (if (eq (car last) #'values)
             (return-from push-pointer-position
-              (setf (car position-cons) (constantly position)
+              (setf (car last) (constantly position)
                     (cdr cons) (copy-cons (cdr cons))))
-            (setf (car cons) (funcall (car position-cons))
+            (setf (car cons) (funcall (car last))
                   (cdr cons) (cons (constantly name) (nbutlast (cdr cons)))))))
     (push (cons name (list (constantly position))) *positions*)))
 
@@ -79,9 +79,7 @@
     (with-gensyms (output position)
       (once-only (*value*)
         `(let* ((,output ,*output*)
-                (,position (etypecase ,output
-                             (writer-bitfield (emitter-output-position (writer-bitfield-output ,output)))
-                             (function (emitter-output-position ,output)))))
+                (,position (emitter-output-position (ensure-emitter-output ,output))))
            ,(let ((*value* (type-default-value pointer-type)))
               (expand-writer-type pointer-type))
            ,(let ((n (- *offset* offset))
