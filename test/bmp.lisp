@@ -31,7 +31,7 @@
                                           8)))))
 
 (define-test bmp :parent suite
-  (is-parse-equal (bmp)
+  (is-rw-equalp (bmp)
     (#(#x42 #x4D           ; Signature "BM"
        #x36 #x00 #x00 #x00 ; File size: 54 bytes
        #x00 #x00           ; Reserved1
