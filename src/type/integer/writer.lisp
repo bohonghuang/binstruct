@@ -41,7 +41,7 @@
 (defmethod expand-writer-type-expr ((name (eql 'unsigned-byte)) &rest args)
   (destructuring-bind (n &aux (offset *offset*)) args
     (incf *offset* (/ n 8))
-    (if (integerp offset)
+    (if (and (integerp offset) (not (typep (get *output* 'offset) 'ratio)))
         (if (integerp *offset*)
             `(,(unsigned-integer-emitter) ,*output* ,*value* ,n)
             (progn
