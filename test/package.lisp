@@ -138,6 +138,21 @@
        :fixed-length (coerce "1234" 'simple-base-string) 
        :zero-terminated (coerce "0000" 'simple-base-string)))))
 
+(defbinstruct float-struct ()
+  (a 0.0s0 :type single-float)
+  (b 0.0d0 :type double-float))
+
+(define-test float :parent suite
+  (is-rw-equalp (float-struct)
+    (#(#x00 #x00 #x80 #x3F  #x00 #x00 #x00 #x00 #x00 #x00 #xF0 #x3F)
+      (make-float-struct :a 1.0s0 :b 1.0d0))
+    (#(#x00 #x00 #x80 #xBF  #x00 #x00 #x00 #x00 #x00 #x00 #xF0 #xBF)
+      (make-float-struct :a -1.0s0 :b -1.0d0))
+    (#(#x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00)
+      (make-float-struct :a 0.0s0 :b 0.0d0))
+    (#(#xC3 #xF5 #x48 #x40  #x1F #x85 #xEB #x51 #xB8 #x1E #x09 #x40)
+      (make-float-struct :a 3.14s0 :b 3.14d0))))
+
 (defbinstruct simple-array-struct ()
   (length 0 :type (unsigned-byte 8))
   (data (make-array 0 :element-type '(unsigned-byte 8)) 
