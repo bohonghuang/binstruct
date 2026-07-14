@@ -31,11 +31,32 @@
           ((simple-array (unsigned-byte 8) (*)) (write-sequence data stream) (file-position stream))
           ((unsigned-byte 8) (write-byte data stream))))))
 
+(defun vector-emitter-output (&optional (vector (make-array 0 :element-type '(unsigned-byte 8) :adjustable t :fill-pointer 0)))
+  (let ((i (length vector)))
+    (declare (type non-negative-fixnum i))
+    (values
+     (named-lambda output (data &optional position)
+       (if position
+           (setf i position)
+           (etypecase data
+             ((simple-array (unsigned-byte 8) (*))
+              (loop :for elem :across data
+                    :do (output elem)
+                    :finally (return i)))
+             ((unsigned-byte 8)
+              (if (< i (length vector))
+                  (setf (aref vector i) data)
+                  (vector-push-extend data vector))
+              (assert (<= (incf i) (length vector)))))))
+     vector)))
+
 (defgeneric ensure-emitter-output (object)
   (:method ((function function))
     function)
   (:method ((stream stream))
-    (stream-emitter-output stream)))
+    (stream-emitter-output stream))
+  (:method ((vector vector))
+    (vector-emitter-output vector)))
 
 (define-constant +emitter-name-prefix+ (string '#:emitter/) :test #'string=)
 
