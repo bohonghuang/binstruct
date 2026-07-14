@@ -3,13 +3,16 @@
 (defun push-pointer-position (name position)
   (when (global-position-p name)
     (when-let ((cons (assoc name *positions*)))
-      (let ((last (last (cdr cons))))
+      (let* ((last-2 (last cons 2))
+             (last (cdr last-2)))
+        (assert last)
         (if (eq (car last) #'values)
             (return-from push-pointer-position
               (setf (car last) (constantly position)
                     (cdr cons) (copy-cons (cdr cons))))
             (setf (car cons) (funcall (car last))
-                  (cdr cons) (cons (constantly name) (nbutlast (cdr cons)))))))
+                  (cdr last-2) nil
+                  (cdr cons) (cons (constantly name) (cdr cons))))))
     (push (cons name (list (constantly position))) *positions*)))
 
 (defun local-pointer-position (name)
@@ -19,38 +22,36 @@
           :return (funcall (lastcar handlers))))
 
 (defun resolve-pointer-positions (&optional end (predicate (complement #'global-position-p)))
-  (let ((positions *positions*))
-    (when (eq positions end)
-      (return-from resolve-pointer-positions))
-    (loop :for current-positions :on positions
-          :for (cons) := current-positions
-          :for (pointer . handlers) := cons
-          :until (eq current-positions end)
-          :if (and (symbolp pointer) (funcall predicate pointer))
-            :if (funcall (lastcar handlers))
-              :collect (cons pointer (last handlers)) :into next
-              :and :collect (cons (funcall (lastcar handlers)) (cons (constantly pointer) (nbutlast handlers))) :into current
-            :else
-              :collect cons :into next
-            :end
+  (loop :for positions :on *positions*
+        :for (cons) := positions
+        :for pointer := (car cons)
+        :for last-2 := (when (and (symbolp pointer) (funcall predicate pointer)) (last cons 2))
+        :for last := (cdr last-2)
+        :do (assert (not (xor last-2 last)))
+        :until (eq positions end)
+        :if last-2
+          :if (funcall (car last))
+            :collect (cons pointer last) :into next
+            :and :do (setf (cdr last-2) nil)
+            :and :collect (cons (funcall (car last)) (cons (constantly pointer) (cdr cons))) :into current
           :else
-            :unless (eql pointer -1)
-              :collect cons :into previous
-          :finally
-             (setf *positions* (nconc current (list (cons -1 (list #'values))) previous current-positions))
-             (return next))))
+            :collect cons :into next
+          :end
+        :else
+          :unless (eql pointer -1)
+            :collect cons :into previous
+        :finally
+           (setf *positions* (nconc current (list (cons -1 (list #'values))) previous positions))
+           (return next)))
 
 (defun derive-pointer-positions (&optional end)
-  (let ((positions *positions*))
-    (when (eq positions end)
-      (return-from derive-pointer-positions positions))
-    (loop :for current-positions :on positions
-          :for (cons) := current-positions
-          :for (position . handlers) := cons
-          :until (eq current-positions end)
-          :until (= position -1)
-          :do (setf (car cons) (funcall (first handlers))
-                    (cdr cons) (nconc (cdr handlers) (list (constantly position)))))))
+  (loop :for positions :on *positions*
+        :for (cons) := positions
+        :for (position . handlers) := cons
+        :until (eq positions end)
+        :until (= position -1)
+        :do (setf (car cons) (funcall (car handlers))
+                  (cdr cons) (nconc (cdr handlers) (list (constantly position))))))
 
 (defun flush-pointer-positions ()
   (loop
