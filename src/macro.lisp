@@ -184,19 +184,46 @@
 (defmacro defbinio (type &optional (iotype t))
   (destructuring-bind (name &rest lambda-list) (ensure-list type)
     (let ((reader (symbolicate '#:read- name))
-          (parser `(,name . ,(parsonic::lambda-list-arguments lambda-list))))
-      (with-gensyms (input result error position)
-        `(defun ,reader (,input . ,lambda-list)
-           (let ((*positions* nil))
-             (multiple-value-bind (,result ,error)
-                 (parser-run
-                  (parser ,parser)
-                  ,(case iotype
-                     ((t) input)
-                     ((stream) `(the parsonic::binary-input-stream ,input))
-                     (otherwise `(the ,iotype ,input))))
-               (if ,error
-                   (error 'deserialize-error :position ,error :input ,input :info ,result)
-                   (if-let ((,position (find-if-not #'integerp *positions* :key #'cdr)))
-                     (error 'unresolved-position-error :name (car ,position))
-                     ,result)))))))))
+          (writer (symbolicate '#:write- name))
+          (struct `(,name . ,(parsonic::lambda-list-arguments lambda-list))))
+      (with-gensyms (input output value result error position vector)
+        `(progn
+           (defun ,reader (,input . ,lambda-list)
+             (let ((*positions* nil))
+               (multiple-value-bind (,result ,error)
+                   (parser-run
+                    (parser ,struct)
+                    ,(case iotype
+                       ((t) input)
+                       ((stream) `(the parsonic::binary-input-stream ,input))
+                       (otherwise `(the ,iotype ,input))))
+                 (if ,error
+                     (error 'deserialize-error :position ,error :input ,input :info ,result)
+                     (if-let ((,position (find-if-not #'integerp *positions* :key #'cdr)))
+                       (error 'unresolved-position-error :name (car ,position))
+                       ,result)))))
+           (defun ,writer (,output ,value . ,lambda-list)
+             (let ((*positions* nil))
+               ,(expand-writer-type-unit
+                 struct
+                 :output (eswitch (iotype :test #'equal)
+                           ('(simple-array (unsigned-byte 8) (*))
+                             (prog1 `(etypecase ,output
+                                       ((simple-array (unsigned-byte 8) (*))
+                                        (multiple-value-bind (,result ,vector) (vector-emitter-output)
+                                          (setf ,output (let ((,output ,output)) (lambda () (replace ,output ,vector))))
+                                          ,result))
+                                       ((array (unsigned-byte 8) (*))
+                                        (multiple-value-bind (,result ,vector) (vector-emitter-output ,output)
+                                          (setf ,output (constantly ,vector))
+                                          ,result))
+                                       (null
+                                        (multiple-value-bind (,result ,vector) (vector-emitter-output)
+                                          (setf ,output (constantly ,vector))
+                                          ,result)))
+                               (setf output `(funcall ,output))))
+                           ('stream `(stream-emitter-output ,output))
+                           ('t `(ensure-emitter-output ,output)))
+                 :value value)
+               (flush-pointer-positions)
+               ,output)))))))

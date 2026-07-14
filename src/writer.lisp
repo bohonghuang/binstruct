@@ -20,8 +20,9 @@
   (funcall output #.(make-array 0 :element-type '(unsigned-byte 8))))
 
 (declaim (ftype (function (non-negative-fixnum emitter-output) (values non-negative-fixnum)) (setf emitter-output-position)))
-(defun (setf emitter-output-position) (target output)
-  (funcall output #.(make-array 0 :element-type '(unsigned-byte 8)) target))
+(defun (setf emitter-output-position) (position output)
+  (funcall output #.(make-array 0 :element-type '(unsigned-byte 8)) position)
+  position)
 
 (defun stream-emitter-output (stream)
   (lambda (data &optional position)
@@ -32,6 +33,7 @@
           ((unsigned-byte 8) (write-byte data stream))))))
 
 (defun vector-emitter-output (&optional (vector (make-array 0 :element-type '(unsigned-byte 8) :adjustable t :fill-pointer 0)))
+  (assert (array-has-fill-pointer-p vector))
   (let ((i (length vector)))
     (declare (type non-negative-fixnum i))
     (values
