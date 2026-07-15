@@ -1,0 +1,98 @@
+#+TITLE: Binstruct
+Fast, declarative binary structure encoding and decoding for Common Lisp.
+* Features
+1. Arbitrary-width (un)signed integers
+2. IEEE 754 floats
+3. Flexible bitfields
+4. Magic number/string validation
+5. Inheritance and parametric types
+6. Fixed-length and null-terminated strings
+7. Fixed-length, variable-length, and sentinel-terminated arrays
+8. Automatic global/local pointer (lazy) resolution
+9. Runtime type selection for tagged unions
+10. Monomorphized compiled readers and writers without runtime generic dispatch
+11. Multiple I/O backends such as ~(simple-array (unsigned-byte 8) (*))~ and ~stream~
+* Installation
+This library and the following dependencies are not yet available on Quicklisp.
+You may need to clone them into =local-projects= manually:
+- [[https://github.com/bohonghuang/parsonic][parsonic]]
+- [[https://github.com/bohonghuang/buffered-streams][buffered-streams]]
+
+Tested on SBCL, CCL, and ECL.
+* Quickstart
+Here is a skeleton example that demonstrates the power of Binstruct:
+
+#+BEGIN_SRC lisp
+  (use-package :alexandria)
+
+  (define-constant +u8vector0+ (make-array 0 :element-type '(unsigned-byte 8)) :test #'equalp)
+  (define-constant +string0+ (coerce "" 'simple-base-string) :test #'string=)
+
+  (use-package :binstruct)
+
+  (defbinenum (version (:type (unsigned-byte 3))) ()
+    v1 (v2 #x01))
+
+  (defbinstruct header ()
+    (nil #.(coerce "BST" 'simple-base-string) :type (satisfies (simple-base-string 3))) ; magic validation (fixed-length string)
+    (compressed nil :type (boolean (unsigned-byte 1)))                                  ; boolean        ╮
+    (version 'v1 :type version)                                                         ; enum           │ bitfield
+    (reserved 0 :type (signed-byte 4)))                                                 ; signed integer ╯
+
+  (defbinstruct chunk ()
+    (length 0 :type (unsigned-byte 8))                                                  ; unsigned integer
+    (data +u8vector0+ :type (simple-array (unsigned-byte 8) (length))))                 ; variable-length array
+
+  (defbinstruct (extended-chunk (:include chunk)) ()                                    ; inheritance
+    (name +string0+ :type (pointer (simple-base-string) (unsigned-byte 16) $base)))     ; pointer (zero-terminated string)
+
+  (defbinstruct (bin (:endian :little)) ()
+    ($base 0 :type position)                                                            ; global position for pointer
+    (header (make-header) :type header)                                                 ; nested structure
+    (chunk-count 0 :type (unsigned-byte 16))
+    (chunks #() :type (ecase (header-version header)                                    ; tagged union
+                        (v1 (simple-array (chunk) (chunk-count)))
+                        (v2 (simple-array (extended-chunk) (chunk-count))))))
+
+  (defbinio bin stream)          ; compile-time reader/writer generation
+
+  (with-open-file (stream (merge-pathnames #P"test.bin" (uiop:temporary-directory))
+                          :direction :io :element-type '(unsigned-byte 8))
+    (let ((bin (make-bin :header (make-header :version 'v2)
+                         :chunk-count 2
+                         :chunks (vector (make-extended-chunk
+                                          :name #.(coerce "foo" 'simple-base-string) :length 4
+                                          :data #.(coerce '(1 2 3 4) '(simple-array (unsigned-byte 8) (*))))
+                                         (make-extended-chunk
+                                          :name #.(coerce "bar" 'simple-base-string) :length 4
+                                          :data #.(coerce '(5 6 7 8) '(simple-array (unsigned-byte 8) (*))))))))
+      (write-bin stream bin)
+      (file-position stream 0)
+      (assert (equalp (read-bin stream) bin))))
+#+END_SRC
+
+For more examples, see [[file:test/package.lisp][the test suite]].
+* Cheatsheet
+| Type specifier                         | Description                                                        |
+|----------------------------------------+--------------------------------------------------------------------|
+| ~(unsigned-byte N)~                      | Unsigned integer of ~N~ bits                                         |
+| ~(signed-byte N)~                        | Signed integer of ~N~ bits                                           |
+| ~position~                               | Current byte offset, used as the base for pointers                 |
+| ~boolean~                                | Boolean over ~(unsigned-byte 8)~                                     |
+| ~(boolean integer-type)~                 | Boolean over a custom underlying integer                           |
+| ~single-float~                           | IEEE 754 single-precision float                                    |
+| ~double-float~                           | IEEE 754 double-precision float                                    |
+| ~simple-base-string~                     | Null-terminated base string                                        |
+| ~(simple-base-string N)~                 | Fixed-length base string of exactly ~N~ bytes                        |
+| ~(simple-array element-type (N))~        | Fixed-length array of ~N~ elements                                   |
+| ~(simple-array element-type (length))~   | Variable-length array                                              |
+| ~(simple-array element-type (*))~        | Sentinel-terminated array (reads until parse fails)                |
+| ~(cons car-type cdr-type)~               | Cons pair                                                          |
+| ~(list a b c ...)~                       | Shorthand for nested cons ~(cons a (cons b (cons c ...)))~           |
+| ~(pointer data-type pointer-type base)~  | Pointer relative to a local ~position~, ~base~                         |
+| ~(pointer data-type pointer-type $base)~ | Pointer relative to a global ~position~, ~$base~                       |
+| ~(ecase key-form (tag type) ...)~        | Tagged union                                                       |
+| ~(or type1 type2 ...)~                   | Untagged union (tries each type in order until one succeeds)       |
+| ~(satisfies type)~                       | Reads a value of ~type~ and validates it against the slot's initform |
+| ~(satisfies type predicate)~             | Reads a value of ~type~ and validates it with ~predicate~              |
+| ~(map type reader writer)~               | Transform a value during read/write                                |
