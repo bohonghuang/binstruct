@@ -54,8 +54,9 @@
   :in-order-to ((test-op (test-op #:binstruct/test))))
 
 (defsystem binstruct/test
-  :depends-on (#:binstruct #:parachute)
+  :depends-on (#:binstruct #:parachute #:flexi-streams)
   :pathname "test/"
   :components ((:file "package")
+               (:file "defbinio" :depends-on ("package"))
                (:file "bmp" :depends-on ("package")))
   :perform (test-op (op c) (symbol-call '#:parachute '#:test (find-symbol (symbol-name '#:suite) '#:binstruct.test))))
