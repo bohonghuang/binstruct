@@ -7,12 +7,9 @@
         (let ((inferred-type (binstruct::lisp-type parser)))
           (unless (eq inferred-type t)
             (setf type inferred-type))))
-      `(progn
-         (eval-when (:compile-toplevel :load-toplevel :execute)
-           (setf (fdefinition ',(alexandria:symbolicate name '- 'value)) (fdefinition 'identity)))
-         (defbinstruct (,name (:type ,type) (:constructor progn))
-           ,lambda-list
-           (value nil :type ,parser))))))
+      `(defbinstruct (,name (:type ,type) (:constructor progn) (:conc-name nil))
+         ,lambda-list
+         (values nil :type ,parser)))))
 
 (defbinalias basic-struct/stream () (basic-struct))
 (defbinalias basic-struct/u8vector () (basic-struct))

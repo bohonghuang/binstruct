@@ -50,6 +50,7 @@
            &key
              (type name typep)
              (constructor (symbolicate '#:make- type) constructorp)
+             (conc-name (symbolicate type '-))
              (endian :little)
              (include nil)
            &allow-other-keys
@@ -140,7 +141,7 @@
                                                     :for slot :in all-slots
                                                     :for (slot-name slot-initform . slot-options) := slot
                                                     :when slot-name
-                                                      :collect `(,slot-name ,(if (slot-excluded-p slot) slot-initform `(,(symbolicate name '- slot-name) ,self))))))
+                                                      :collect `(,slot-name ,(if (slot-excluded-p slot) slot-initform `(,(symbolicate (or conc-name '#:||) slot-name) ,self))))))
                               `(let ,*bindings*
                                  (declare (ignorable . ,(mapcar #'first *bindings*)))
                                  ,@(loop :for *slots* :on slots
