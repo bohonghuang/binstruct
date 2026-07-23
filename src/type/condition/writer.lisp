@@ -13,5 +13,7 @@
 
 (defmethod expand-writer-type-expr ((name (eql 'or)) &rest args)
   `(etypecase ,*value*
-     . ,(loop :for arg :in args
-              :collect `(,(lisp-type arg) ,(expand-writer-type arg)))))
+     . ,(delete-duplicates
+         (loop :for arg :in args
+               :collect `(,(lisp-type arg) ,(expand-writer-type arg)))
+         :key #'first :test #'type= :from-end t)))
