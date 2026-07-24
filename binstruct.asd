@@ -22,6 +22,7 @@
                                            (:file "writer")))
                              (:module "integer"
                               :components ((:file "reader")
+                                           (:file "reader-optimize" :depends-on ("reader"))
                                            (:file "writer")))
                              (:module "boolean"
                               :components ((:file "reader")

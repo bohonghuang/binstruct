@@ -33,7 +33,7 @@
                 (:little `(bytes-unsigned-integer/le ,bytes))))))))
 
 (declaim (inline unsigned-signed-integer))
-(defun unsigned-signed-integer (unsigned nbits)
+(defun unsigned-signed-integer (nbits unsigned)
   (if (logbitp (1- nbits) unsigned)
       (- unsigned (ash 1 nbits))
       unsigned))
@@ -42,7 +42,7 @@
   (destructuring-bind (n) args
     (with-gensyms (unsigned)
       `(for ((,unsigned ,(expand-reader-type `(unsigned-byte ,n))))
-         (the (signed-byte ,n) (unsigned-signed-integer ,unsigned ,n))))))
+         (the (signed-byte ,n) (unsigned-signed-integer ,n ,unsigned))))))
 
 (defmacro define-unsigned-integer-parsers ()
   (loop :with mappings
@@ -78,7 +78,7 @@
     (with-gensyms (unsigned)
       (parsonic::expand
        `(for ((,unsigned (unsigned-byte ,n)))
-          (the (signed-byte ,n) (unsigned-signed-integer ,unsigned ,n)))))))
+          (the (signed-byte ,n) (unsigned-signed-integer ,n ,unsigned)))))))
 
 (defmethod expand-reader-type-expr ((name (eql 'unsigned-byte)) &rest args)
   (destructuring-bind (n) args
