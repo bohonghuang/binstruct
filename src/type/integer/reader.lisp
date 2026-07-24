@@ -18,17 +18,15 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defconstant +word-size+ (* (ceiling (log most-positive-fixnum 2) 8) 8))
   (defun unsigned-byte-parser (n endian)
-    (with-gensyms (bytes)
-      (if (<= n +word-size+)
-          `(for ((,bytes (list . ,(loop :repeat (floor n 8) :collect `(unsigned-byte-8)))))
-             ,(with-gensyms (byte shift)
-                (ecase endian
-                  (:big `(loop :for ,byte :of-type (unsigned-byte 8) :in ,bytes
-                               :for ,shift :of-type non-negative-fixnum :downfrom ,(- n 8) :by 8
-                               :sum (the (unsigned-byte ,n) (ash ,byte ,shift)) :of-type (unsigned-byte ,n)))
-                  (:little `(loop :for ,byte :of-type (unsigned-byte 8) :in ,bytes
-                                  :for ,shift :of-type non-negative-fixnum :from 0 :by 8
-                                  :sum (the (unsigned-byte ,n) (ash ,byte ,shift)) :of-type (unsigned-byte ,n))))))
+    (if (<= n +word-size+)
+        (let* ((count (floor n 8))
+               (bytes (loop :repeat count :collect (with-gensyms (byte) byte)))
+               (shifts (ecase endian
+                         (:big (loop :for i :from 0 :below count :collect (- n (* 8 (1+ i)))))
+                         (:little (loop :for i :from 0 :below count :collect (* 8 i))))))
+          `(for (,@(loop :for byte :in bytes :collect `(,byte (unsigned-byte-8))))
+             (the (unsigned-byte ,n) (logior ,@(loop :for byte :in bytes :for shift :in shifts :collect `(ash ,byte ,shift))))))
+        (with-gensyms (bytes)
           `(for ((,bytes (rep (unsigned-byte-8) ,(floor n 8) ,(floor n 8))))
              ,(ecase endian
                 (:big `(bytes-unsigned-integer/be ,bytes))
@@ -52,13 +50,11 @@
         :nconc (loop :for endian :in '(:little :big)
                      :for parser-name := (setf (assoc-value mappings (list `(unsigned-byte ,n) endian) :test #'equal)
                                                (intern (format nil "~A-~D~@[/~A~]" 'unsigned-byte n (when (> n 8) (ecase endian (:little 'le) (:big 'be))))))
-                     :for function-name := (symbolicate '#:bytes- parser-name)
                      :when (> n 8)
-                       :nconc (destructuring-ecase (unsigned-byte-parser n endian)
-                                ((for ((bytes parser)) body)
-                                 `((declaim (ftype (function (list) (values (unsigned-byte ,n))) ,function-name))
-                                   (defun ,function-name (,bytes) ,body)
-                                   (defparser ,parser-name () (for ((,bytes ,parser)) (,function-name ,bytes)))))))
+                       :nconc (let ((form (unsigned-byte-parser n endian)))
+                                (destructuring-ecase form
+                                  ((for bindings body)
+                                   `((defparser ,parser-name () (for ,bindings ,body)))))))
           :into parsers
         :finally
            (return
