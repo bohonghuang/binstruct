@@ -7,6 +7,8 @@
 (defvar *place*)
 (defvar *positions*)
 
+(declaim (type list *positions*))
+
 (defgeneric lisp-type-expr (name &rest args)
   (:method (name &rest args)
     (if args (cons name args) name)))
