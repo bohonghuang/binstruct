@@ -1,7 +1,13 @@
 (in-package #:binstruct)
 
-(defparser sequence (element length &optional (type 'simple-array))
-  (for ((list (rep element (max 0 length) (if (minusp length) most-positive-fixnum length))))
+(defparser sequence/fixed-length (element length &optional (type 'simple-array))
+  (for ((list (rep element length length)))
+    (declare (type list list))
+    (unless (eq type 'null)
+      (coerce list type))))
+
+(defparser sequence/until-failure (element &optional (type 'simple-array))
+  (for ((list (rep element)))
     (declare (type list list))
     (unless (eq type 'null)
       (coerce list type))))
@@ -19,10 +25,10 @@
             (parser (let ((*slots* nil) (*place* (place-lambda (value) `(setf (aref ,array ,index) ,value))))
                       (expand-reader-type-unit element-type))))
         (if (eq length '*)
-            `(sequence ,parser -1 ',(lisp-type (cons array-type array-type-args)))
+            `(sequence/until-failure ,parser ',(lisp-type (cons array-type array-type-args)))
             (if (equal parser '(unsigned-byte-8))
                 (if name
-                    `(sequence ,parser ,length ',(lisp-type (cons array-type array-type-args)))
+                    `(sequence/fixed-length ,parser ,length ',(lisp-type (cons array-type array-type-args)))
                     `(skip ,length))
                 (if name
                     `(let ((,array (constantly (make-array ,length :element-type ',(lisp-type element-type) :initial-element ,(type-default-value element-type))))
@@ -42,7 +48,7 @@
 
 (defmethod parsonic::expand-expr ((name (eql 'simple-array)) &rest args)
   (destructuring-bind (type (length)) args
-    (parsonic::expand `(sequence ,type ,length ',(lisp-type (cons name args))))))
+    (parsonic::expand `(sequence/fixed-length ,type ,length ',(lisp-type (cons name args))))))
 
 (defmethod expand-reader-type-expr ((name (eql 'simple-array)) &rest args)
   (apply #'expand-array-reader-type name args))
@@ -54,7 +60,7 @@
 
 (defmethod parsonic::expand-expr ((name (eql 'array)) &rest args)
   (destructuring-bind (type (length)) args
-    (parsonic::expand `(sequence ,type ,length ',(lisp-type (cons name args))))))
+    (parsonic::expand `(sequence/fixed-length ,type ,length ',(lisp-type (cons name args))))))
 
 (defmethod expand-reader-type-expr ((name (eql 'array)) &rest args)
   (apply #'expand-array-reader-type name args))

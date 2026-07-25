@@ -37,7 +37,7 @@
                ,array
                parsonic::+input-eof+))))))
 
-(defmethod parsonic::expand-expr/compile :around ((op (eql 'sequence)) &rest args)
+(defmethod parsonic::expand-expr/compile :around ((op (eql 'sequence/fixed-length)) &rest args)
   (destructuring-bind (element-type length (quote (array-type array-element-type (array-length)))) args
     (declare (ignore array-length))
     (assert (eq quote 'quote))
