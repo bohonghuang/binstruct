@@ -19,7 +19,8 @@
                 :components ((:file "default")
                              (:module "condition"
                               :components ((:file "reader")
-                                           (:file "writer")))
+                                           (:file "writer"))
+                              :depends-on ("integer"))
                              (:module "integer"
                               :components ((:file "reader")
                                            (:file "reader-optimize" :depends-on ("reader"))
