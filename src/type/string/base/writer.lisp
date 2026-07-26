@@ -16,3 +16,8 @@
         ,(case length
            (* `(1+ (length ,*value*)))
            (t length))))))
+
+(defmethod expand-writer-type-expr ((name (eql 'base-char)) &rest args)
+  (declare (ignore args))
+  `(emitter-output-byte ,*output* (char-code ,*value*)))
+

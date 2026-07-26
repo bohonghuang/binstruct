@@ -166,6 +166,25 @@
        :fixed-length (coerce "hello" 'simple-string)
        :zero-terminated (coerce "héllö" 'simple-string)))))
 
+(defbinstruct base-char-struct ()
+  (a #\a :type base-char)
+  (b #\b :type base-char))
+
+(define-test base-char :parent suite
+  (is-rw-equalp (base-char-struct)
+    (#(#x41 #x42) (make-base-char-struct :a #\A :b #\B))))
+
+(defbinstruct character-struct ()
+  (a #\a :type character)
+  (b #\a :type character)
+  (c #\a :type character)
+  (d #\a :type character))
+
+(define-test character :parent suite
+  (is-rw-equalp (character-struct)
+    (#(#x41 #xC3 #xA9 #xE4 #xB8 #x96 #xF0 #x9F #x98 #x80)
+      (make-character-struct :a #\A :b #\é :c #\世 :d #\😀))))
+
 (defun float= (a b)
   (etypecase (cons a b)
     ((cons single-float single-float)
