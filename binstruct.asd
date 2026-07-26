@@ -42,10 +42,14 @@
                                            (:file "reader-optimize" :depends-on ("reader"))
                                            (:file "writer"))
                               :depends-on ("default"))
-                             (:module "string"
-                              :components ((:file "reader")
-                                           (:file "writer"))
-                              :depends-on ("integer"))
+                            (:module "string"
+                             :depends-on ("integer")
+                             :components ((:module "base"
+                                           :components ((:file "reader")
+                                                        (:file "writer")))
+                                          (:module "utf-8"
+                                           :components ((:file "reader")
+                                                        (:file "writer")))))
                              (:module "map"
                               :components ((:file "reader")
                                            (:file "writer")))

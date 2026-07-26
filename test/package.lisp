@@ -141,6 +141,31 @@
        :fixed-length (coerce "1234" 'simple-base-string) 
        :zero-terminated (coerce "0000" 'simple-base-string)))))
 
+(defbinstruct utf-8-string-struct ()
+  (length 0 :type (unsigned-byte 32))
+  (fixed-length "" :type (simple-string length))
+  (zero-terminated "" :type simple-string))
+
+(define-test utf-8-string :parent suite
+  (is-rw-equalp (utf-8-string-struct)
+    (#(3 0 0 0 #xC3 #xA9 #xE4 #xB8 #x96 #xF0 #x9F #x98 #x80 #x00)
+      (make-utf-8-string-struct
+       :length 3
+       :fixed-length (coerce "é世😀" 'simple-string)
+       :zero-terminated (coerce "" 'simple-string))))
+  (is-rw-equalp (utf-8-string-struct)
+    (#(0 0 0 0 #x00)
+      (make-utf-8-string-struct
+       :length 0
+       :fixed-length (coerce "" 'simple-string)
+       :zero-terminated (coerce "" 'simple-string))))
+  (is-rw-equalp (utf-8-string-struct)
+    (#(5 0 0 0 #x68 #x65 #x6C #x6C #x6F #x68 #xC3 #xA9 #x6C #x6C #xC3 #xB6 #x00)
+      (make-utf-8-string-struct
+       :length 5
+       :fixed-length (coerce "hello" 'simple-string)
+       :zero-terminated (coerce "héllö" 'simple-string)))))
+
 (defun float= (a b)
   (etypecase (cons a b)
     ((cons single-float single-float)

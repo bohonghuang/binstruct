@@ -6,7 +6,7 @@ Fast, declarative binary structure encoding and decoding for Common Lisp.
 3. Flexible bitfields
 4. Magic number/string validation
 5. Inheritance and parametric types
-6. Fixed-length and null-terminated strings
+6. Fixed-length and null-terminated (UTF-8) strings
 7. Fixed-length, variable-length, and sentinel-terminated arrays
 8. Automatic global/local pointer (lazy) resolution
 9. Runtime type selection for tagged unions
@@ -84,6 +84,8 @@ For more examples, see [[file:test/package.lisp][the test suite]].
 | ~double-float~                           | IEEE 754 double-precision float                                    |
 | ~simple-base-string~                     | Null-terminated base string                                        |
 | ~(simple-base-string N)~                 | Fixed-length base string of exactly ~N~ bytes                        |
+| ~simple-string~                          | Null-terminated UTF-8 string                                       |
+| ~(simple-string N)~                      | Fixed-length UTF-8 string of exactly ~N~ characters                  |
 | ~(simple-array element-type (N))~        | Fixed-length array of ~N~ elements                                   |
 | ~(simple-array element-type (length))~   | Variable-length array                                              |
 | ~(simple-array element-type (*))~        | Sentinel-terminated array (reads until parse fails)                |

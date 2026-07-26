@@ -1,0 +1,77 @@
+(in-package #:binstruct)
+
+(declaim (ftype (function ((unsigned-byte 8)) (values (integer 0 4))) utf-8-byte-count)
+         (inline utf-8-byte-count))
+(defun utf-8-byte-count (byte)
+  (cond ((not (logtest byte #b10000000)) 1)
+        ((= (logand byte #b11100000) #b11000000) 2)
+        ((= (logand byte #b11110000) #b11100000) 3)
+        ((= (logand byte #b11111000) #b11110000) 4)
+        (t 0)))
+
+(declaim (ftype (function ((unsigned-byte 8)) (values character)) utf-8-character-1)
+         (inline utf-8-character-1))
+(defun utf-8-character-1 (byte-1)
+  (code-char byte-1))
+
+(declaim (ftype (function ((unsigned-byte 8) (unsigned-byte 8)) (values character)) utf-8-character-2)
+         (inline utf-8-character-2))
+(defun utf-8-character-2 (byte-1 byte-2)
+  (code-char (logior (ash (logand byte-1 #b00011111) 6)
+                     (logand byte-2 #b00111111))))
+
+(declaim (ftype (function ((unsigned-byte 8) (unsigned-byte 8) (unsigned-byte 8)) (values character)) utf-8-character-3)
+         (inline utf-8-character-3))
+(defun utf-8-character-3 (byte-1 byte-2 byte-3)
+  (code-char (logior (ash (logand byte-1 #b00001111) 12)
+                     (ash (logand byte-2 #b00111111) 6)
+                     (logand byte-3 #b00111111))))
+
+(declaim (ftype (function ((unsigned-byte 8) (unsigned-byte 8) (unsigned-byte 8) (unsigned-byte 8)) (values character)) utf-8-character-4)
+         (inline utf-8-character-4))
+(defun utf-8-character-4 (byte-1 byte-2 byte-3 byte-4)
+  (code-char (logior (ash (logand byte-1 #b00000111) 18)
+                     (ash (logand byte-2 #b00111111) 12)
+                     (ash (logand byte-3 #b00111111) 6)
+                     (logand byte-4 #b00111111))))
+
+(defparser positive-byte ()
+  (satisfies (lambda (byte) (not (eql byte #x00)))))
+
+(defparser character ()
+  ((lambda (byte-1)
+     (ecase (utf-8-byte-count byte-1)
+       (0 (parser (or)))
+       (1 (parser (constantly (utf-8-character-1 byte-1))))
+       (2 (parser (for ((byte-2 (positive-byte)))
+                    (utf-8-character-2 byte-1 byte-2))))
+       (3 (parser (for ((byte-2 (positive-byte))
+                        (byte-3 (positive-byte)))
+                    (utf-8-character-3 byte-1 byte-2 byte-3))))
+       (4 (parser (for ((byte-2 (positive-byte))
+                        (byte-3 (positive-byte))
+                        (byte-4 (positive-byte)))
+                    (utf-8-character-4 byte-1 byte-2 byte-3 byte-4))))))
+   (unsigned-byte 8)))
+
+(defparser simple-string/fixed-length (size)
+  (for ((list (rep (character) size size)))
+    (declare (type list list))
+    (coerce list '(simple-array character (*)))))
+
+(defparser simple-string/terminated (&optional (length 0) (terminator #x00))
+  (for ((list (prog1 (rep (and (peek (satisfies (lambda (byte) (not (= byte terminator))))) (character)) length)
+                (satisfies (lambda (byte) (= byte terminator))))))
+    (declare (type list list))
+    (coerce list '(simple-array character (*)))))
+
+(defmethod parsonic::expand-expr ((op (eql 'simple-string)) &rest args)
+  (destructuring-bind (&optional (length '*)) args
+    (parsonic::expand
+     (case length
+       (* `(simple-string/terminated))
+       (t `(simple-string/fixed-length ,length))))))
+
+(defmethod lisp-type-expr ((name (eql 'simple-string)) &rest args)
+  (declare (ignore args))
+  '(simple-array character (*)))

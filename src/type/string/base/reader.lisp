@@ -2,6 +2,7 @@
 
 (defparser base-char ()
   (for ((code (unsigned-byte 8)))
+    (declare (type (unsigned-byte 8) code))
     (code-char code)))
 
 (declaim (ftype (function (list) (values (simple-array base-char (*)))) bytes-base-string))
@@ -19,11 +20,13 @@
 
 (defparser simple-base-string/fixed-length (size)
   (for ((list (rep (unsigned-byte 8) size size)))
+    (declare (type list list))
     (bytes-base-string list)))
 
 (defparser simple-base-string/terminated (&optional (length 0) (terminator #x00))
   (for ((list (prog1 (rep (satisfies (lambda (byte) (not (= byte terminator)))) length)
                 (satisfies (lambda (byte) (= byte terminator))))))
+    (declare (type list list))
     (bytes-base-string list)))
 
 (defmethod parsonic::expand-expr ((op (eql 'simple-base-string)) &rest args)
