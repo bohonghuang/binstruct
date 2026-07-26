@@ -49,7 +49,8 @@
                                                         (:file "writer")))
                                           (:module "utf-8"
                                            :components ((:file "reader")
-                                                        (:file "writer")))))
+                                                        (:file "writer"))
+                                           :depends-on ("base"))))
                              (:module "map"
                               :components ((:file "reader")
                                            (:file "writer")))

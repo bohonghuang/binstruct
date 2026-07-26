@@ -23,9 +23,11 @@
     (declare (type list list))
     (bytes-base-string list)))
 
-(defparser simple-base-string/terminated (&optional (length 0) (terminator #x00))
-  (for ((list (prog1 (rep (satisfies (lambda (byte) (not (= byte terminator)))) length)
-                (satisfies (lambda (byte) (= byte terminator))))))
+(defparser positive-byte ()
+  (satisfies (lambda (byte) (not (eql byte #x00)))))
+
+(defparser simple-base-string/null-terminated ()
+  (for ((list (prog1 (rep (positive-byte)) (eql #x00))))
     (declare (type list list))
     (bytes-base-string list)))
 
@@ -33,7 +35,7 @@
   (destructuring-bind (&optional (length '*)) args
     (parsonic::expand
      (case length
-       (* `(simple-base-string/terminated))
+       (* `(simple-base-string/null-terminated))
        (t `(simple-base-string/fixed-length ,length))))))
 
 (defmethod lisp-type-expr ((name (eql 'simple-base-string)) &rest args)

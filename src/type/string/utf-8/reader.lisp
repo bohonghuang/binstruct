@@ -35,9 +35,6 @@
                      (ash (logand byte-3 #b00111111) 6)
                      (logand byte-4 #b00111111))))
 
-(defparser positive-byte ()
-  (satisfies (lambda (byte) (not (eql byte #x00)))))
-
 (defparser character ()
   ((lambda (byte-1)
      (ecase (utf-8-byte-count byte-1)
@@ -59,9 +56,9 @@
     (declare (type list list))
     (coerce list '(simple-array character (*)))))
 
-(defparser simple-string/terminated (&optional (length 0) (terminator #x00))
-  (for ((list (prog1 (rep (and (peek (satisfies (lambda (byte) (not (= byte terminator))))) (character)) length)
-                (satisfies (lambda (byte) (= byte terminator))))))
+(defparser simple-string/null-terminated ()
+  (for ((list (prog1 (rep ((lambda (char) (if (char= char #\Nul) (parser (or)) (parser (constantly char)))) (character)))
+                (eql #x00))))
     (declare (type list list))
     (coerce list '(simple-array character (*)))))
 
@@ -69,7 +66,7 @@
   (destructuring-bind (&optional (length '*)) args
     (parsonic::expand
      (case length
-       (* `(simple-string/terminated))
+       (* `(simple-string/null-terminated))
        (t `(simple-string/fixed-length ,length))))))
 
 (defmethod lisp-type-expr ((name (eql 'simple-string)) &rest args)
