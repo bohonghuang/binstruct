@@ -50,7 +50,10 @@
 
 (defmethod parsonic::expand-expr ((name (eql 'simple-array)) &rest args)
   (destructuring-bind (type (length)) args
-    (parsonic::expand `(sequence/fixed-length ,type ,length ',(lisp-type (cons name args))))))
+    (parsonic::expand
+     (case length
+       (* `(sequence/until-failure ,type ',(lisp-type (cons name args))))
+       (t `(sequence/fixed-length ,type ,length ',(lisp-type (cons name args))))))))
 
 (defmethod expand-reader-type-expr ((name (eql 'simple-array)) &rest args)
   (apply #'expand-array-reader-type name args))
@@ -61,8 +64,7 @@
     `(simple-array ,(lisp-type type) (*))))
 
 (defmethod parsonic::expand-expr ((name (eql 'array)) &rest args)
-  (destructuring-bind (type (length)) args
-    (parsonic::expand `(sequence/fixed-length ,type ,length ',(lisp-type (cons name args))))))
+  (parsonic::expand `(simple-array . ,args)))
 
 (defmethod expand-reader-type-expr ((name (eql 'array)) &rest args)
   (apply #'expand-array-reader-type name args))
