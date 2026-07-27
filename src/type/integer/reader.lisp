@@ -24,8 +24,9 @@
                (shifts (ecase endian
                          (:big (loop :for i :from 0 :below count :collect (- n (* 8 (1+ i)))))
                          (:little (loop :for i :from 0 :below count :collect (* 8 i))))))
-          `(for (,@(loop :for byte :in bytes :collect `(,byte (unsigned-byte-8))))
-             (the (unsigned-byte ,n) (logior ,@(loop :for byte :in bytes :for shift :in shifts :collect `(ash ,byte ,shift))))))
+          `(for ,(loop :for byte :in bytes :collect `(,byte (unsigned-byte-8)))
+             (declare (type (unsigned-byte 8) . ,bytes))
+             (the (unsigned-byte ,n) (logior . ,(loop :for byte :in bytes :for shift :in shifts :collect `(ash ,byte ,shift))))))
         (with-gensyms (bytes)
           `(for ((,bytes (rep (unsigned-byte-8) ,(floor n 8) ,(floor n 8))))
              ,(ecase endian
@@ -51,10 +52,10 @@
                      :for parser-name := (setf (assoc-value mappings (list `(unsigned-byte ,n) endian) :test #'equal)
                                                (intern (format nil "~A-~D~@[/~A~]" 'unsigned-byte n (when (> n 8) (ecase endian (:little 'le) (:big 'be))))))
                      :when (> n 8)
-                       :nconc (let ((form (unsigned-byte-parser n endian)))
-                                (destructuring-ecase form
-                                  ((for bindings body)
-                                   `((defparser ,parser-name () (for ,bindings ,body)))))))
+                       :collect (destructuring-ecase (unsigned-byte-parser n endian)
+                                  ((for bindings &rest body)
+                                   `(defparser ,parser-name ()
+                                      (for ,bindings . ,body)))))
           :into parsers
         :finally
            (return
