@@ -33,7 +33,7 @@
             (let ((bytes (ignore-some-conditions (unbound-variable)
                            (eval (with-gensyms (output result)
                                    `(multiple-value-bind (,output ,result) (vector-emitter-output)
-                                      ,(expand-writer-type-unit type :value constant :endian *endian* :output output)
+                                      ,(expand-writer-type-unit type :value constant :output output)
                                       ,result))))))
               (when (< 0 (length bytes) #.(1+ (floor +word-size+ 8)))
                 (return-from expand-reader-type-expr

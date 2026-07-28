@@ -43,7 +43,7 @@
     (when (consp bindings)
       (nconcf *bindings* bindings))))
 
-(defun expand-reader-type-unit (type &key (endian :little) (offset 0))
+(defun expand-reader-type-unit (type &key (endian *endian*) (offset 0))
   (when (and (boundp '*offset*) (boundp '*bindings*))
     (finish-reader-partial-byte))
   (with-gensyms (unit null value setter)

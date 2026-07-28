@@ -25,7 +25,7 @@
                                    (is ,test ,expected (funcall ,reader-compiled ,bytes)))
                                  (let ((,output (make-array 0 :element-type '(unsigned-byte 8) :adjustable t :fill-pointer 0)))
                                    (let ((binstruct::*positions* nil))
-                                     ,(binstruct::expand-writer-type-unit struct :output `(binstruct::vector-emitter-output ,output) :value expected)
+                                     ,(binstruct::expand-writer-type-unit struct :endian :little :output `(binstruct::vector-emitter-output ,output) :value expected)
                                      (binstruct::flush-pointer-positions))
                                    (let* ((,writer-eval (coerce ,output '(simple-array (unsigned-byte 8) (*))))
                                           (,writer-compiled ,writer-eval))

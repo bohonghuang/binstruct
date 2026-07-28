@@ -207,6 +207,7 @@
              (let ((*positions* nil))
                ,(expand-writer-type-unit
                  struct
+                 :endian '#:specified-by-type
                  :output (eswitch (iotype :test #'equal)
                            ('(simple-array (unsigned-byte 8) (*))
                              (prog1 `(etypecase ,output
