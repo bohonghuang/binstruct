@@ -33,6 +33,7 @@
           ((unsigned-byte 8) (write-byte data stream))))))
 
 (defun vector-emitter-output (&optional (vector (make-array 0 :element-type '(unsigned-byte 8) :adjustable t :fill-pointer 0)))
+  (assert (adjustable-array-p vector))
   (assert (array-has-fill-pointer-p vector))
   (let ((i (length vector)))
     (declare (type non-negative-fixnum i))
@@ -46,9 +47,15 @@
                     :do (output elem)
                     :finally (return i)))
              ((unsigned-byte 8)
-              (if (< i (length vector))
-                  (setf (aref vector i) data)
-                  (vector-push-extend data vector))
+              (cond
+                ((< i (length vector))
+                 (setf (aref vector i) data))
+                ((= i (length vector))
+                 (vector-push-extend data vector))
+                (t (unless (< i (array-total-size vector))
+                     (adjust-array vector (1+ i)))
+                   (setf (fill-pointer vector) (1+ i)
+                         (aref vector i) data)))
               (assert (<= (incf i) (length vector)))))))
      vector)))
 

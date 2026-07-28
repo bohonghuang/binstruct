@@ -288,6 +288,23 @@
     (#(1 42) (make-tagged-union-struct :tag 'b :data 42))
     (#(2 1 2 3 4) (make-tagged-union-struct :tag 'c :data (make-array 4 :element-type '(unsigned-byte 8) :initial-contents '(1 2 3 4))))))
 
+(defbinstruct peek-struct ()
+  (a 0 :type (peek (unsigned-byte 8)))
+  (b 0 :type (unsigned-byte 8)))
+
+(define-test peek :parent suite
+  (is-rw-equalp (peek-struct)
+    (#(42) (make-peek-struct :a 42 :b 42))))
+
+(defbinstruct peek-position-struct ()
+  (a 0 :type (peek (unsigned-byte 8) 1))
+  (b 0 :type (unsigned-byte 8))
+  (c 0 :type (unsigned-byte 8)))
+
+(define-test peek-position :parent suite
+  (is-rw-equalp (peek-position-struct)
+    (#(42 7) (make-peek-position-struct :a 7 :b 42 :c 7))))
+
 (defbinstruct pointer-struct ()
   (base 0 :type position)
   (array (make-array 0 :element-type '(unsigned-byte 8)) :type (pointer (simple-array (unsigned-byte 8) (length)) (unsigned-byte 8) base))

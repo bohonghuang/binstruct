@@ -65,7 +65,12 @@
                (return-from flush-pointer-positions)))))
 
 (defmethod expand-writer-type-expr ((name (eql 'peek)) &rest args)
-  (declare (ignore args)))
+  (destructuring-bind (type &optional (position `(emitter-output-position ,*output*))) args
+    (with-gensyms (current)
+      `(let ((,current (emitter-output-position ,*output*)))
+         (setf (emitter-output-position ,*output*) ,position)
+         ,(expand-writer-type-unit type :slots *slots*)
+         (setf (emitter-output-position ,*output*) ,current)))))
 
 (defmethod expand-writer-type-expr ((name (eql 'position)) &rest args)
   (declare (ignore args))
