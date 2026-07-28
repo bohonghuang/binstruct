@@ -4,7 +4,7 @@
   (destructuring-bind (name &rest options &aux (*package* (symbol-package name))) (ensure-list name-and-options)
     (destructuring-bind (&key
                            (type '(unsigned-byte 32))
-                           (endian :little endianp)
+                           (endian +endian-default+ endianp)
                          &allow-other-keys
                          &aux
                            (*endian* endian))
@@ -51,7 +51,7 @@
              (type name typep)
              (constructor (symbolicate '#:make- type) constructorp)
              (conc-name (symbolicate type '-))
-             (endian :little)
+             (endian +endian-default+)
              (include nil)
            &allow-other-keys
            &aux

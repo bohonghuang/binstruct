@@ -61,7 +61,7 @@
            (return
              (with-gensyms (name type endian)
                `(progn
-                  (defun integer-type-parser (,type &optional (,endian :little))
+                  (defun integer-type-parser (,type &optional (,endian +endian-default+))
                     (if-let ((,name (assoc-value ',mappings (list ,type ,endian) :test #'equal)))
                       (list ,name)
                       (progn

@@ -7,6 +7,8 @@
 (defvar *place*)
 (defvar *positions*)
 
+(defconstant +endian-default+ :little)
+
 (declaim (type list *positions*))
 
 (defgeneric lisp-type-expr (name &rest args)
