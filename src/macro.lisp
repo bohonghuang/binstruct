@@ -162,6 +162,7 @@
                                                    :collect (with-gensyms (output value)
                                                               `(with-gensyms (,output ,value)
                                                                  `(lambda (,,output ,,value)
+                                                                    (declare (ignorable ,,output ,,value))
                                                                     ,(let ((*output* ,output) (*value* ,value))
                                                                        (expand-writer-type ,arg)))))
                                                  :else

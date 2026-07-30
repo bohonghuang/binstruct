@@ -94,6 +94,7 @@
                 (with-gensyms (offset handlers)
                   `(let ((,handlers (push
                                      (lambda (,offset)
+                                       (declare (ignorable ,offset)) ,output
                                        (let ((,position (shiftf (emitter-output-position ,*output*) ,position)))
                                          ,(let* ((*value* `(- ,position ,offset))
                                                  (delta (when-let ((start (or start (get *output* 'offset))))
