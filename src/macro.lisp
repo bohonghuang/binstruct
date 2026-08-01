@@ -145,7 +145,7 @@
                                                         :collect `(,slot-name ,slot-initform) :into excluded
                                                       :else
                                                         :collect `(,slot-name (,(symbolicate (or conc-name '#:||) slot-name) ,self)) :into included
-                                                    :finally (return (nconc included excluded)))))
+                                                    :finally (return (nconc included (stable-sort excluded #'< :key (compose #'char-code #'first-elt #'symbol-name #'car)))))))
                               `(let* ,*bindings*
                                  (declare (ignorable . ,(mapcar #'first *bindings*)))
                                  ,@(loop :for *slots* :on slots

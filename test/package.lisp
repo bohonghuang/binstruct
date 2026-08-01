@@ -316,8 +316,8 @@
     (#(42 7) (make-peek-position-struct :a 7 :b 42 :c 7))))
 
 (defbinstruct pointer-struct ()
-  (base 0 :type position)
-  (array (make-array 0 :element-type '(unsigned-byte 8)) :type (pointer (simple-array (unsigned-byte 8) (length)) (unsigned-byte 8) base))
+  (%base 0 :type position)
+  (array (make-array 0 :element-type '(unsigned-byte 8)) :type (pointer (simple-array (unsigned-byte 8) (length)) (unsigned-byte 8) %base))
   (length 0 :type (unsigned-byte 8)))
 
 (defbinstruct pointer-pointer-struct ()
@@ -337,6 +337,7 @@
        4 4 0 0 1 2 3 4
        2 6 1 2 3 4 5 6)
       (make-pointer-pointer-struct
+       :base 0
        :length 4
        :array (make-array
                4
@@ -352,7 +353,7 @@
                                    (append list list)))))))
 
 (defbinstruct (derived-struct (:include basic-struct)) (&optional (n 1))
-  (p 0 :type position)
+  (%p 8 :type position)
   (e (make-array 0 :element-type '(unsigned-byte 8)) :type (simple-array (unsigned-byte 8) (n)))
   (f 0 :type (signed-byte 16)))
 
@@ -360,7 +361,7 @@
   (g 0 :type (unsigned-byte 16))
   (h (make-array 0 :element-type '(signed-byte 8)) :type (satisfies
                                                           (simple-array (signed-byte 8) ((+ n (- 2 a) b)))
-                                                          (lambda (array) (declare (ignore array)) (= p 8)))))
+                                                          (lambda (array) (declare (ignore array)) (= %p 8)))))
 
 (define-test subtype :parent suite
   (is-rw-equalp (derived-struct)
@@ -456,10 +457,10 @@
     (#(0 0 12) (make-skip-struct :a 12))))
 
 (defbinstruct parametric-type-struct (type)
-  (start 0 :type position)
+  (%start 0 :type position)
   (body nil :type (inline type))
-  (end 0 :type position)
-  (size 0 :type (map null (constantly (- end start)))))
+  (%end 0 :type position)
+  (size 0 :type (map null (constantly (- %end %start)))))
 
 (define-test parametric-type :parent suite
   (is-rw-equalp (parametric-type-struct (unsigned-byte 8))
@@ -624,18 +625,18 @@
     (#3# (make-nonlocal-position-struct-4-2 . #4#))))
 
 (defbinstruct position-pointer-struct ()
-  (start 0 :type position)
+  (%start 0 :type position)
   (string 0 :type (pointer simple-base-string (unsigned-byte 8) $base))
-  ($base 0 :type (pointer position (unsigned-byte 8) start)))
+  ($base 0 :type (pointer position (unsigned-byte 8) %start)))
 
 (define-test position-pointer :parent suite
   (is-rw-equalp (position-pointer-struct)
     (#(4 2 0 0 0 0 72 101 108 108 111 0) (make-position-pointer-struct :string (coerce "Hello" 'simple-base-string)))))
 
 (defbinstruct local-pointers-in-cons-struct ()
-  (base 0 :type position)
-  (cons '(0 . 0) :type (cons (pointer (unsigned-byte 8) (unsigned-byte 4) base)
-                             (pointer (unsigned-byte 8) (unsigned-byte 4) base))))
+  (%base 0 :type position)
+  (cons '(0 . 0) :type (cons (pointer (unsigned-byte 8) (unsigned-byte 4) %base)
+                             (pointer (unsigned-byte 8) (unsigned-byte 4) %base))))
 
 (defbinstruct nonlocal-pointers-in-cons-struct ()
   ($base1 0 :type position)
@@ -654,14 +655,14 @@
        :cons (cons 1 2)))))
 
 (defbinstruct local-pointers-in-tagged-union-struct ()
-  (base 0 :type position)
+  (%base 0 :type position)
   (tag 0 :type (unsigned-byte 8))
   (length nil :type (ecase tag
                       (0 (null))
                       (1 (unsigned-byte 8))))
   (data 0 :type (ecase tag
                   (0 (unsigned-byte 8))
-                  (1 (pointer (simple-array (unsigned-byte 8) (length)) (unsigned-byte 8) base)))))
+                  (1 (pointer (simple-array (unsigned-byte 8) (length)) (unsigned-byte 8) %base)))))
 
 (defbinstruct nonlocal-pointers-in-tagged-union-struct ()
   ($base1 0 :type position)

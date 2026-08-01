@@ -40,7 +40,7 @@
 
 (defmethod lisp-type-expr ((name (eql 'position)) &rest args)
   (destructuring-bind () args
-    'offset))
+    'non-negative-fixnum))
 
 (defmethod expand-reader-type-expr ((name (eql 'pointer)) &rest args)
   (destructuring-bind (data-type pointer-type &optional (base 0)) args

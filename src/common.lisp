@@ -18,16 +18,13 @@
 (defun lisp-type (type)
   (apply #'lisp-type-expr (ensure-list type)))
 
-(deftype offset ()
-  'non-negative-fixnum)
-
 (defun slot-name (&optional (slot (first *slots*)))
   (car slot))
 
+(define-constant +excluded-slot-prefixes+ '(#\$ #\%) :test #'equal)
+
 (defun slot-excluded-p (&optional (slot (first *slots*)))
-  (or (eq (lisp-type (getf slot :type)) 'offset)
-      (char= (aref (symbol-name (car slot)) 0) #\%)
-      (null (slot-name slot))))
+  (if (slot-name slot) (member (aref (symbol-name (slot-name slot)) 0) +excluded-slot-prefixes+) t))
 
 (defparser inline (parser)
   parser)
