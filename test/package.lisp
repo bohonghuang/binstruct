@@ -6,6 +6,17 @@
 
 (define-test suite)
 
+(defmacro defbinalias (name-and-options lambda-list parser)
+  (destructuring-bind (name &rest options) (alexandria:ensure-list name-and-options)
+    (destructuring-bind (&key (type name typep)) (alexandria:mappend #'identity options)
+      (unless typep
+        (let ((inferred-type (binstruct::lisp-type parser)))
+          (unless (eq inferred-type t)
+            (setf type inferred-type))))
+      `(defbinstruct (,name (:type ,type) (:constructor progn) (:conc-name nil))
+         ,lambda-list
+         (values nil :type ,parser)))))
+
 (defmacro is-rw (test struct &body tests)
   (with-gensyms (input output)
     (let ((reader-eval (make-symbol (format nil "~A [~A]" struct '#:reader/eval)))
@@ -556,6 +567,14 @@
   ($nonlocal-base-2 0 :type position)
   ($nonlocal-base-1 0 :type position))
 
+(defbinalias nonlocal-position-struct-5-non-zero ()
+  (satisfies (unsigned-byte 8) (rcurry #'/= #xFF)))
+
+(defbinstruct nonlocal-position-struct-5 ()
+  (strings (make-array 0 :element-type 'simple-base-string) :type (simple-array (pointer simple-base-string nonlocal-position-struct-5-non-zero $nonlocal-base) (*)))
+  (nil #xFF :type (satisfies (unsigned-byte 8)))
+  ($nonlocal-base 0 :type position))
+
 (define-test nonlocal-pointer :parent suite
   (is-rw-equalp (nonlocal-position-struct-1)
     (#(#x03 #x00 #x03 #x01 #x03 #x02 #x03
@@ -622,7 +641,12 @@
                                                              :array (make-array 3 :element-type '(unsigned-byte 8)
                                                                                   :initial-contents '(2 2 3)))))))))
   (is-rw-equalp (nonlocal-position-struct-4-2)
-    (#3# (make-nonlocal-position-struct-4-2 . #4#))))
+    (#3# (make-nonlocal-position-struct-4-2 . #4#)))
+  (is-rw-equalp (nonlocal-position-struct-5)
+    (#(#x00 #x06 #xFF #x48 #x65 #x6C #x6C #x6F #x00 #x57 #x6F #x72 #x6C #x64 #x00)
+      (make-nonlocal-position-struct-5 :strings (coerce (list (coerce "Hello" 'simple-base-string)
+                                                              (coerce "World" 'simple-base-string))
+                                                        '(simple-array simple-base-string (*)))))))
 
 (defbinstruct position-pointer-struct ()
   (%start 0 :type position)

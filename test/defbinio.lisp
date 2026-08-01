@@ -1,16 +1,5 @@
 (in-package #:binstruct.test)
 
-(defmacro defbinalias (name-and-options lambda-list parser)
-  (destructuring-bind (name &rest options) (alexandria:ensure-list name-and-options)
-    (destructuring-bind (&key (type name typep)) (alexandria:mappend #'identity options)
-      (unless typep
-        (let ((inferred-type (binstruct::lisp-type parser)))
-          (unless (eq inferred-type t)
-            (setf type inferred-type))))
-      `(defbinstruct (,name (:type ,type) (:constructor progn) (:conc-name nil))
-         ,lambda-list
-         (values nil :type ,parser)))))
-
 (defbinalias basic-struct/stream () (basic-struct))
 (defbinalias basic-struct/u8vector () (basic-struct))
 (defbinalias derived-struct/stream (&optional (n 1)) (derived-struct n))
