@@ -141,8 +141,12 @@
                                                     :for slot :in all-slots
                                                     :for (slot-name slot-initform . slot-options) := slot
                                                     :when slot-name
-                                                      :collect `(,slot-name ,(if (slot-excluded-p slot) slot-initform `(,(symbolicate (or conc-name '#:||) slot-name) ,self))))))
-                              `(let ,*bindings*
+                                                      :if (slot-excluded-p slot)
+                                                        :collect `(,slot-name ,slot-initform) :into excluded
+                                                      :else
+                                                        :collect `(,slot-name (,(symbolicate (or conc-name '#:||) slot-name) ,self)) :into included
+                                                    :finally (return (nconc included excluded)))))
+                              `(let* ,*bindings*
                                  (declare (ignorable . ,(mapcar #'first *bindings*)))
                                  ,@(loop :for *slots* :on slots
                                          :for (slot) := *slots*

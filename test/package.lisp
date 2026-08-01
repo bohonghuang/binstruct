@@ -138,7 +138,7 @@
     (#(4 0 0 0 49 50 51 52 48 48 48 48 0)
       (make-base-string-struct
        :length 4
-       :fixed-length (coerce "1234" 'simple-base-string) 
+       :fixed-length (coerce "1234" 'simple-base-string)
        :zero-terminated (coerce "0000" 'simple-base-string)))))
 
 (defbinstruct utf-8-string-struct ()
@@ -236,15 +236,25 @@
 
 (defbinstruct simple-array-struct ()
   (length 0 :type (unsigned-byte 8))
-  (data (make-array 0 :element-type '(unsigned-byte 8)) 
+  (data (make-array 0 :element-type '(unsigned-byte 8))
         :type (simple-array (unsigned-byte 8) (length))))
+
+(defbinstruct auto-length-simple-array-struct ()
+  (%length (length data) :type (unsigned-byte 8))
+  (data (make-array 0 :element-type '(unsigned-byte 8))
+        :type (simple-array (unsigned-byte 8) (%length))))
 
 (define-test simple-array :parent suite
   (is-rw-equalp (simple-array-struct)
     (#(4 1 2 3 4)
-      (make-simple-array-struct 
-       :length 4 
-       :data (make-array 4 :element-type '(unsigned-byte 8) 
+      (make-simple-array-struct
+       :length 4
+       :data (make-array 4 :element-type '(unsigned-byte 8)
+                           :initial-contents '(1 2 3 4)))))
+  (is-rw-equalp (auto-length-simple-array-struct)
+    (#(4 1 2 3 4)
+      (make-auto-length-simple-array-struct
+       :data (make-array 4 :element-type '(unsigned-byte 8)
                            :initial-contents '(1 2 3 4))))))
 
 (defbinstruct sentinel-terminated-array-element ()

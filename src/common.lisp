@@ -26,6 +26,7 @@
 
 (defun slot-excluded-p (&optional (slot (first *slots*)))
   (or (eq (lisp-type (getf slot :type)) 'offset)
+      (char= (aref (symbol-name (car slot)) 0) #\%)
       (null (slot-name slot))))
 
 (defparser inline (parser)
