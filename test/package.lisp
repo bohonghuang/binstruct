@@ -577,13 +577,22 @@
   (array (make-array 0 :element-type 'nonlocal-pointer-struct-1) :type (simple-array nonlocal-pointer-struct-1 (length)))
   ($nonlocal-base 0 :type position))
 
-(defbinstruct nonlocal-pointer-struct-2 ()
+(defbinstruct nonlocal-pointer-struct-2-1 ()
   (length 0 :type (unsigned-byte 8))
   (array (make-array 0 :element-type 'simple-base-string) :type (simple-array (pointer simple-base-string (unsigned-byte 8) $nonlocal-base) (length))))
 
-(defbinstruct nonlocal-position-struct-2 ()
+(defbinstruct nonlocal-position-struct-2-1 ()
   (length 0 :type (unsigned-byte 8))
-  (array (make-array 0 :element-type 'nonlocal-pointer-struct-2) :type (simple-array nonlocal-pointer-struct-2 (length)))
+  (array (make-array 0 :element-type 'nonlocal-pointer-struct-2-1) :type (simple-array nonlocal-pointer-struct-2-1 (length)))
+  ($nonlocal-base 0 :type position))
+
+(defbinstruct nonlocal-pointer-struct-2-2 ()
+  (length 0 :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'simple-base-string) :type (simple-array (pointer simple-base-string (unsigned-byte 4) $nonlocal-base) (length))))
+
+(defbinstruct nonlocal-position-struct-2-2 ()
+  (length 0 :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'nonlocal-pointer-struct-2-2) :type (simple-array nonlocal-pointer-struct-2-2 (length)))
   ($nonlocal-base 0 :type position))
 
 (defbinstruct nonlocal-pointer-struct-3 ()
@@ -641,23 +650,37 @@
                                                     (make-nonlocal-pointer-struct-1
                                                      :array (make-array 3 :element-type '(unsigned-byte 8) :initial-contents '(3 4 5))
                                                      :length 3))))))
-  (is-rw-equalp (nonlocal-position-struct-2)
+  (is-rw-equalp (nonlocal-position-struct-2-1)
     (#(#x03 #x03 #x00 #x04 #x08 #x03 #x01 #x05 #x09 #x03 #x02 #x06 #x0A
        #x61 #x62 #x63 #x00 #x64 #x65 #x66 #x00 #x67 #x68 #x69 #x00)
-      (make-nonlocal-position-struct-2
+      (make-nonlocal-position-struct-2-1
        :length 3
-       :array (make-array 3 :element-type 'nonlocal-pointer-struct-2
-                            :initial-contents (list (make-nonlocal-pointer-struct-2
+       :array (make-array 3 :element-type 'nonlocal-pointer-struct-2-1
+                            :initial-contents (list (make-nonlocal-pointer-struct-2-1
                                                      :array (make-array 3 :element-type 'simple-base-string
                                                                           :initial-contents (mapcar (rcurry #'coerce 'simple-base-string) '("abc" "def" "ghi")))
                                                      :length 3)
-                                                    (make-nonlocal-pointer-struct-2
+                                                    (make-nonlocal-pointer-struct-2-1
                                                      :array (make-array 3 :element-type 'simple-base-string
                                                                           :initial-contents (mapcar (rcurry #'coerce 'simple-base-string) '("bc" "ef" "hi")))
                                                      :length 3)
-                                                    (make-nonlocal-pointer-struct-2
+                                                    (make-nonlocal-pointer-struct-2-1
                                                      :array (make-array 3 :element-type 'simple-base-string
                                                                           :initial-contents (mapcar (rcurry #'coerce 'simple-base-string) '("c" "f" "i")))
+                                                     :length 3))))))
+  (is-rw-equalp (nonlocal-position-struct-2-2)
+    (#(#x02 #x03 #x30 #x06 #x03 #x41 #x07
+       #x61 #x62 #x00 #x63 #x64 #x00 #x65 #x66 #x00)
+      (make-nonlocal-position-struct-2-2
+       :length 2
+       :array (make-array 2 :element-type 'nonlocal-pointer-struct-2-2
+                            :initial-contents (list (make-nonlocal-pointer-struct-2-2
+                                                     :array (make-array 3 :element-type 'simple-base-string
+                                                                          :initial-contents (mapcar (rcurry #'coerce 'simple-base-string) '("ab" "cd" "ef")))
+                                                     :length 3)
+                                                    (make-nonlocal-pointer-struct-2-2
+                                                     :array (make-array 3 :element-type 'simple-base-string
+                                                                          :initial-contents (mapcar (rcurry #'coerce 'simple-base-string) '("b" "d" "f")))
                                                      :length 3))))))
   (is-rw-equalp (nonlocal-position-struct-3-1)
     (#1=#(#x03 #x00 #x01 #x02 #x03 #x04 #x05 #x06 #x07 #x08)

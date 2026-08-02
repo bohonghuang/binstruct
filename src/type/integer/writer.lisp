@@ -60,7 +60,7 @@
                 (setf (get *output* 'offset) offset)
                 `(setf ,*output* (make-emitter-bitfield-output :output ,*output* :value ,*value*))))
           `(progn
-             (setf (ldb (byte ,n ,(* (- offset start) 8)) (emitter-bitfield-output-value ,*output*)) ,*value*)
+             (setf (ldb (byte ,n ,(* (- offset start) 8)) (emitter-bitfield-output-value ,*output*)) (the (unsigned-byte ,n) ,*value*))
              ,(when (integerp *offset*)
                 `(progn
                    (,(unsigned-integer-emitter) (emitter-bitfield-output-output ,*output*)
