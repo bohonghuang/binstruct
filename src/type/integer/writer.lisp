@@ -63,3 +63,7 @@
                                                              `(setf (emitter-bitfield-output-size ,*output*) ,(* bytes 8))
                                                              `(emitter-bitfield-output-size ,*output*))))
                    (setf ,*output* (emitter-bitfield-output-output ,*output*)))))))))
+
+(defmethod expand-writer-type-expr ((name (eql 'bit)) &rest args)
+  (declare (ignore args))
+  (expand-writer-type '(unsigned-byte 1)))

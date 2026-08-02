@@ -81,6 +81,10 @@
        `(for ((,unsigned (unsigned-byte ,n)))
           (the (signed-byte ,n) (unsigned-signed-integer ,n ,unsigned)))))))
 
+(defmethod parsonic::expand-expr ((name (eql 'bit)) &rest args)
+  (declare (ignore args))
+  (parsonic::expand-expr '(unsigned-byte 1)))
+
 (defmethod expand-reader-type-expr ((name (eql 'unsigned-byte)) &rest args)
   (destructuring-bind (n) args
     (let* ((offset (prog1 *offset* (incf *offset* (/ n 8))))
@@ -104,3 +108,7 @@
                   (car parser) (let ((bytes (- *offset* start)) (*offset* 0))
                                  (check-type bytes positive-fixnum)
                                  (expand-reader-type `(unsigned-byte ,(* bytes 8)))))))))))
+
+(defmethod expand-reader-type-expr ((name (eql 'bit)) &rest args)
+  (declare (ignore args))
+  (expand-reader-type '(unsigned-byte 1)))

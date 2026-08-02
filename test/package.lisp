@@ -286,6 +286,68 @@
                                                  (make-sentinel-terminated-array-element)))
        :end 0))))
 
+(defbinstruct bit-vector-struct-1 ()
+  (%size (length array) :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'bit) :type (simple-array bit (%size))))
+
+(defbinstruct bit-vector-struct-2 ()
+  (%size (length array) :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'boolean) :type (simple-array (boolean bit) (%size))))
+
+(define-test bit-vector :parent suite
+  (is-rw-equalp (bit-vector-struct-1)
+    (#(#x04 #b00000001)
+      (make-bit-vector-struct-1
+       :array (make-array 4
+                          :element-type 'bit
+                          :initial-contents '(1 0 0 0)))))
+  (is-rw-equalp (bit-vector-struct-2)
+    (#(#x04 #b00000001)
+      (make-bit-vector-struct-2
+       :array (make-array 4
+                          :element-type 'boolean
+                          :initial-contents '(t nil nil nil))))))
+
+(defbinstruct nibble-array-struct-1/2 ()
+  (%size (length array) :type (unsigned-byte 8))
+  (array (make-array 0 :element-type '(unsigned-byte 4)) :type (simple-array (unsigned-byte 4) (%size))))
+
+(defbinstruct nibble-array-struct-3/4 ()
+  (%size (length array) :type (unsigned-byte 8))
+  (array (make-array 0 :element-type '(unsigned-byte 6))
+         :type (simple-array (unsigned-byte 6) (%size))))
+
+(defbinstruct nibble-array-struct-3/2 ()
+  (%size (length array) :type (unsigned-byte 8))
+  (array (make-array 0 :element-type '(unsigned-byte 12))
+         :type (simple-array (unsigned-byte 12) (%size))))
+
+(define-test nibble-array :parent suite
+  (is-rw-equalp (nibble-array-struct-1/2)
+    (#(#x04 #x21 #x43)
+      (make-nibble-array-struct-1/2
+       :array (make-array 4
+                          :element-type '(unsigned-byte 4)
+                          :initial-contents '(1 2 3 4)))))
+  (is-rw-equalp (nibble-array-struct-1/2)
+    (#(#x03 #x21 #x03)
+      (make-nibble-array-struct-1/2
+       :array (make-array 3
+                          :element-type '(unsigned-byte 4)
+                          :initial-contents '(1 2 3)))))
+  (is-rw-equalp (nibble-array-struct-3/4)
+    (#(#x04 #x81 #x30 #x10)
+      (make-nibble-array-struct-3/4
+       :array (make-array 4
+                          :element-type '(unsigned-byte 6)
+                          :initial-contents '(1 2 3 4)))))
+  (is-rw-equalp (nibble-array-struct-3/2)
+    (#(#x02 #x01 #x20 #x00)
+      (make-nibble-array-struct-3/2
+       :array (make-array 2
+                          :element-type '(unsigned-byte 12)
+                          :initial-contents '(1 2))))))
+
 (defbinenum (enum-struct-enum (:type (unsigned-byte 8))) ()
   a (b 1) c)
 
