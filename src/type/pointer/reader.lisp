@@ -17,7 +17,7 @@
   (destructuring-bind (type &optional position) args
     (if position
         `(peek (progn (position ,position) ,(expand-reader-type-unit type)))
-        `(peek ,(expand-reader-type type)))))
+        (progn (finish-reader-partial-byte) `(peek ,(expand-reader-type-unit type))))))
 
 (defmethod lisp-type-expr ((name (eql 'peek)) &rest args)
   (destructuring-bind (type &optional position) args

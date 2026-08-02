@@ -89,12 +89,15 @@
     `(funcall ,type ,*output* ,*value*)))
 
 (defun expand-writer-type-unit (type &key (endian *endian*) (offset 0) (output *output*) (value *value*) (slots nil))
-  (once-only (output value)
-    (let ((*endian* endian)
-          (*offset* offset)
-          (*output* output)
-          (*value* value)
-          (*slots* slots))
-      `(progn
-         ,output ,value
-         ,(expand-writer-type type)))))
+  `(progn
+     ,(when (and (boundp '*output*) (boundp '*offset*))
+        (finish-writer-partial-byte))
+     ,(once-only (output value)
+        (let ((*endian* endian)
+              (*offset* offset)
+              (*output* output)
+              (*value* value)
+              (*slots* slots))
+          `(progn
+             ,output ,value
+             ,(expand-writer-type type))))))

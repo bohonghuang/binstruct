@@ -13,7 +13,7 @@
                (:file "common" :depends-on ("package"))
                (:file "place" :depends-on ("package"))
                (:file "reader" :depends-on ("package" "common" "place"))
-               (:file "writer" :depends-on ("package"))
+               (:file "writer" :depends-on ("package" "common"))
                (:file "macro" :depends-on ("package" "common" "reader" "place" "writer"))
                (:module "type"
                 :components ((:file "default")
@@ -57,7 +57,7 @@
                              (:module "list"
                               :components ((:file "reader")
                                            (:file "writer"))))
-                :depends-on ("package" "common" "reader" "place")))
+                :depends-on ("package" "common" "reader" "writer" "place")))
   :in-order-to ((test-op (test-op #:binstruct/test))))
 
 (defsystem binstruct/test

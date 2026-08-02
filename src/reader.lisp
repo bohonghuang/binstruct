@@ -2,7 +2,13 @@
 
 (defun finish-reader-partial-byte ()
   (unless (integerp *offset*)
-    (nconcf *bindings* (list `(nil ,(expand-reader-type `(unsigned-byte ,(* (- (ceiling *offset*) *offset*) 8))))))))
+    (let ((remainder (* (- (ceiling *offset*) *offset*) 8)))
+      (restart-case (error 'partial-byte-error :remainder remainder)
+        (pad ()
+          :report "Pad remaining bits and continue."
+          (nconcf *bindings* (list `(nil ,(expand-reader-type `(unsigned-byte ,remainder))))))
+        (ignore ()
+          :report "Ignore the partial-byte boundary and continue.")))))
 
 (defgeneric expand-reader-type-expr (name &rest args)
   (:method (name &rest args)

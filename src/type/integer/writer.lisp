@@ -36,10 +36,16 @@
 
 (defun finish-writer-partial-byte ()
   (when-let ((offset (shiftf (get *output* 'offset) nil)))
-    `(progn
-       (,(unsigned-integer-emitter) (emitter-bitfield-output-output ,*output*)
-        (emitter-bitfield-output-value ,*output*) ,(* (- (setf *offset* (ceiling *offset*)) offset) 8))
-       (setf ,*output* (emitter-bitfield-output-output ,*output*)))))
+    (restart-case (error 'partial-byte-error :remainder (* (- (ceiling offset) offset) 8))
+      (pad ()
+        :report "Pad remaining bits and continue."
+        `(progn
+           (,(unsigned-integer-emitter) (emitter-bitfield-output-output ,*output*)
+            (emitter-bitfield-output-value ,*output*) ,(* (- (setf *offset* (ceiling *offset*)) offset) 8))
+           (setf ,*output* (emitter-bitfield-output-output ,*output*))))
+      (ignore ()
+        :report "Ignore the partial-byte boundary and continue."
+        (setf (get *output* 'offset) offset)))))
 
 (defmethod expand-writer-type-expr ((name (eql 'unsigned-byte)) &rest args)
   (destructuring-bind (n) args

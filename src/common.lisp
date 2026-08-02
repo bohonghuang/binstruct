@@ -32,3 +32,7 @@
 (defmethod lisp-type-expr ((name (eql 'inline)) &rest args)
   (declare (ignore args))
   t)
+
+(define-condition partial-byte-error (error)
+  ((remainder :initarg :remainder :reader partial-byte-error-remainder))
+  (:report (lambda (c s) (format s "The current type requires byte alignment, but ~D bit~:P remain." (partial-byte-error-remainder c)))))
