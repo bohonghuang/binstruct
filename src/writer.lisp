@@ -100,4 +100,5 @@
               (*slots* slots))
           `(progn
              ,output ,value
-             ,(expand-writer-type type))))))
+             ,(expand-writer-type type)
+             ,(finish-writer-partial-byte))))))

@@ -28,12 +28,14 @@
                (ecase ,value . ,(loop :for (name value) :in fields
                                       :collect `(,value ',name))))
              (defparser ,name ,lambda-list
-               (for ((,value ,(expand-reader-type-unit type)))
+               (for ((,value ,(handler-bind ((partial-byte-error (lambda (c) (declare (ignore c)) (invoke-restart 'pad))))
+                                (expand-reader-type-unit type))))
                  (,unpack ,value)))
              (eval-when (:compile-toplevel :load-toplevel :execute)
                (defmethod expand-reader-type-expr ((,op (eql ',name)) &rest ,args)
                  (destructuring-bind ,lambda-list ,args
-                   `(for ((,',value ,(let ,(when endianp `((*endian* ,endian))) (expand-reader-type ',type))))
+                   `(for ((,',value ,(let ,(when endianp `((*endian* ,endian)))
+                                       (expand-reader-type ',type))))
                       (,',unpack ,',value))))
                (defmethod expand-writer-type-expr ((,op (eql ',name)) &rest ,args)
                  (destructuring-bind ,lambda-list ,args
