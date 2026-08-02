@@ -28,10 +28,18 @@
 (defmethod expand-reader-type-expr ((name (eql 'capture-index)) &rest args)
   (destructuring-bind (index i type) args
     (with-gensyms (var)
-      `(let ((,index (constantly (+ ,index ,i))))
-         (declare (type non-negative-fixnum ,index) (ignorable ,index))
-         (let* ,(slots-parser-bindings `((,var nil :type ,type)))
-           (constantly ,var))))))
+      (let ((*place* (place-lambda (value) (place-set (place-parent) value))))
+        (let ((bindings (slots-parser-bindings `((,var nil :type ,type)))))
+          (cond
+            ((place-used-p *place*)
+             `(let ((,index (constantly (+ ,index ,i))))
+                (declare (type non-negative-fixnum ,index) (ignorable ,index))
+                (let* ,bindings
+                  (constantly ,var))))
+            ((> (length bindings) 1)
+             `(let* ,bindings (constantly ,var)))
+            (t (assert (eq (first (first bindings)) var))
+               (second (first bindings)))))))))
 
 (defun expand-array-reader-type (array-type &rest array-type-args)
   (finish-reader-partial-byte)
