@@ -17,26 +17,43 @@
     (declare (type non-negative-fixnum position))
     (position (+ position n))))
 
+(defmethod expand-reader-type-expr ((name (eql 'offset)) &rest args)
+  (let ((*offset* 0))
+    (apply #'expand-reader-type args)
+    (throw 'offset *offset*)))
+
+(defun type-offset (type)
+  (catch 'offset (expand-reader-type-unit `(offset ,type))))
+
+(defmethod expand-reader-type-expr ((name (eql 'capture-index)) &rest args)
+  (destructuring-bind (index i type) args
+    (with-gensyms (var)
+      `(let ((,index (constantly (+ ,index ,i))))
+         (declare (type non-negative-fixnum ,index) (ignorable ,index))
+         (let* ,(slots-parser-bindings `((,var nil :type ,type)))
+           (constantly ,var))))))
+
 (defun expand-array-reader-type (array-type &rest array-type-args)
   (finish-reader-partial-byte)
   (destructuring-bind (element-type (dimension)) array-type-args
     (with-gensyms (array index length count)
       (let ((name (car (first *slots*))))
-        (multiple-value-bind (parsers bindings)
-            (loop :with *slots* := (with-gensyms (slot) (list (list slot)))
-                  :and *place* := (place-lambda (value) `(setf (aref ,array ,index) ,value))
-                  :and *offset* := 0
-                  :and *bindings* := nil
-                  :collect (expand-reader-type-unit element-type) :into parsers
-                  :until (integerp *offset*)
-                  :finally (return (values parsers *bindings*)))
-          (if (equal parsers '((unsigned-byte-8)))
+        (multiple-value-bind (bindings elements)
+            (let ((*slots* (with-gensyms (slot) (list (list slot))))
+                  (*place* (place-lambda (value) `(setf (aref ,array ,index) ,value)))
+                  (*offset* 0)
+                  (*bindings* t))
+              (let* ((slots (loop :for i :below (denominator (type-offset element-type))
+                                  :collect `(,(with-gensyms (element) element) nil :type (capture-index ,index ,i ,element-type))))
+                     (results (mapcar #'first slots)))
+                (values (slots-parser-bindings slots) results (assert (integerp *offset*)))))
+          (if (equal element-type '(unsigned-byte 8))
               (if name
-                  `(sequence/fixed-length ,(car parsers) ,dimension ',(lisp-type (cons array-type array-type-args)))
+                  `(sequence/fixed-length (unsigned-byte-8) ,dimension ',(lisp-type (cons array-type array-type-args)))
                   `(skip ,dimension))
               `(let ((,length (constantly ,(case dimension (* 0) (t dimension)))))
                  (declare (type non-negative-fixnum ,length))
-                 (let ((,count (constantly (ceiling ,length ,(length parsers)))))
+                 (let ((,count (constantly (ceiling ,length ,(length elements)))))
                    (declare (type non-negative-fixnum ,count))
                    ,(if name
                         `(let ((,array (constantly (make-array ,length :element-type ',(lisp-type element-type)
@@ -45,26 +62,19 @@
                                (,index (constantly 0)))
                            (declare (type (,(case dimension (* 'array) (t 'simple-array)) ,(lisp-type element-type) (*)) ,array)
                                     (type non-negative-fixnum ,index))
-                           (for ((nil (rep (let ,bindings
-                                             (,(let ((elements (loop :repeat (length parsers) :collect (with-gensyms (element) element))))
-                                                 `(lambda ,elements
-                                                    ,@(loop :for element :in elements
-                                                            :for i :from 0
-                                                            :collect `(,@(if (or (zerop i) (eq dimension '*)) '(progn) `(when (< ,index ,length)))
-                                                                       ,(case dimension
-                                                                          (* `(vector-push-extend ,element ,array))
-                                                                          (t `(setf (aref ,array ,index) ,element)))
-                                                                       (incf ,index)))
-                                                    (parser (constantly nil))))
-                                              . ,(loop :for parser :in parsers
-                                                       :for i :from 0
-                                                       :collect `((lambda ()
-                                                                    (let ((,index (+ ,index ,i)))
-                                                                      (declare (ignorable ,index))
-                                                                      (parser ,parser)))))))
+                           (for ((nil (rep (let* ,bindings
+                                             ((lambda ()
+                                                ,@(loop :for element :in elements
+                                                        :for i :from 0
+                                                        :collect `(,@(if (or (zerop i) (eq dimension '*)) '(progn) `(when (< ,index ,length)))
+                                                                   ,(case dimension
+                                                                      (* `(vector-push-extend ,element ,array))
+                                                                      (t `(setf (aref ,array ,index) ,element)))
+                                                                   (incf ,index)))
+                                                (parser (constantly nil)))))
                                            ,count ,(case dimension (* most-positive-fixnum) (t count)))))
                              (setf ,array (coerce ,array '(,array-type ,(lisp-type element-type) (*))))))
-                        `(progn (rep (let ,bindings . ,parsers) ,length ,length) (constantly nil)))))))))))
+                        `(progn (rep (let* ,bindings (constantly nil)) ,length ,length) (constantly nil)))))))))))
 
 (defmethod parsonic::expand-expr ((name (eql 'simple-array)) &rest args)
   (destructuring-bind (type (length)) args
