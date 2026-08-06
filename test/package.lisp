@@ -386,6 +386,11 @@
   (length 0 :type (unsigned-byte 8))
   (array (make-array 0 :element-type 'pointer-struct) :type (simple-array (pointer (pointer-struct) (unsigned-byte 8) base) (length))))
 
+(defbinstruct pointers-struct ()
+  (%base 0 :type position)
+  (length 0 :type (values (pointer (unsigned-byte 8) (unsigned-byte 8) %base)))
+  (array (make-array 0 :element-type '(unsigned-byte 8)) :type (simple-array (pointer (unsigned-byte 8) (unsigned-byte 8) %base) (length))))
+
 (define-test pointer :parent suite
   (is-rw-equalp (pointer-struct)
     (#(2 4 1 2 3 4)
@@ -411,7 +416,13 @@
                                                     :array (make-array 6 :element-type '(unsigned-byte 8)
                                                                          :initial-contents '(1 2 3 4 5 6))
                                                     :length 6))))
-                                   (append list list)))))))
+                                   (append list list))))))
+  (is-rw-equalp (pointers-struct)
+    (#(5 6 7 8 9 4 1 2 3 4)
+      (make-pointers-struct
+       :array (make-array 4 :element-type '(unsigned-byte 8)
+                            :initial-contents '(1 2 3 4))
+       :length 4))))
 
 (defbinstruct (derived-struct (:include basic-struct)) (&optional (n 1))
   (%p 8 :type position)

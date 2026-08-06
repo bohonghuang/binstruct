@@ -1,5 +1,14 @@
 (in-package #:binstruct)
 
+(defmethod expand-reader-type-expr ((name (eql 'values)) &rest args)
+  (destructuring-bind (type) args
+    `(let* ,(slots-parser-bindings `((,(slot-name) nil :type ,type)))
+       (constantly ,(slot-name)))))
+
+(defmethod lisp-type-expr ((name (eql 'values)) &rest args)
+  (destructuring-bind (type) args
+    (lisp-type type)))
+
 (defparser map (parser &optional (reader #'identity) (writer #'identity))
   (for ((value parser))
     writer
