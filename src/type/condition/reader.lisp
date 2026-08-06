@@ -30,7 +30,7 @@
                         (t #1='#:nil))))
         (unless (eq constant #1#)
           (when (constantp constant)
-            (let ((bytes (ignore-some-conditions (unbound-variable)
+            (let ((bytes (ignore-some-conditions (unbound-variable partial-byte-error)
                            (eval (with-gensyms (output result)
                                    `(multiple-value-bind (,output ,result) (vector-emitter-output)
                                       ,(expand-writer-type-unit type :value constant :output output)
