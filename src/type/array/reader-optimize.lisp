@@ -38,17 +38,19 @@
                parsonic::+input-eof+))))))
 
 (defmethod parsonic::expand-expr/compile :around ((op (eql 'sequence/fixed-length)) &rest args)
-  (destructuring-bind (element-type length (quote (array-type array-element-type (array-length)))) args
-    (declare (ignore array-length))
-    (assert (eq quote 'quote))
-    (if (equal element-type '(unsigned-byte-8))
-        (let ((var (ecase array-type
-                     (simple-array +input-type-simple-array-unsigned-byte-8+)
-                     (array +input-type-array-unsigned-byte-8+))))
-          (assert (equal array-element-type '(unsigned-byte 8)))
-          (with-gensyms (result)
-            (parsonic::expand/compile
-             `(let ((,result (constantly (let ((,var ,length)) ,(input-read-sequence/compile parsonic::*codegen-input* var)))))
-                (rep (or) (if (eq ,result parsonic::+input-eof+) 1 0))
-                (constantly ,result)))))
-        (call-next-method))))
+  (destructuring-bind (element-type length &optional (type ''(simple-array t (*))) (transform '#'identity)) args
+    (destructuring-bind ((quote (array-type array-element-type (array-length))) . (function transform)) (cons type transform)
+      (declare (ignore array-length))
+      (assert (eq quote 'quote))
+      (assert (eq function 'function))
+      (if (and (equal element-type '(unsigned-byte-8)) (eq transform 'identity))
+          (let ((var (ecase array-type
+                       (simple-array +input-type-simple-array-unsigned-byte-8+)
+                       (array +input-type-array-unsigned-byte-8+))))
+            (assert (equal array-element-type '(unsigned-byte 8)))
+            (with-gensyms (result)
+              (parsonic::expand/compile
+               `(let ((,result (constantly (let ((,var ,length)) ,(input-read-sequence/compile parsonic::*codegen-input* var)))))
+                  (rep (or) (if (eq ,result parsonic::+input-eof+) 1 0))
+                  (constantly ,result)))))
+          (call-next-method)))))

@@ -336,6 +336,33 @@
                           :element-type '(unsigned-byte 12)
                           :initial-contents '(1 2))))))
 
+(deftype byte-array (&optional n)
+  `(simple-array (unsigned-byte 8) (,(or n '*))))
+
+(defbinalias (byte-array (:type byte-array)) (n)
+  (simple-array (unsigned-byte 8) (n)))
+
+(defbinstruct opaque-element-array-struct-1 ()
+  (%m (length (aref array 0)) :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'byte-array) :type (simple-array (byte-array %m) (*))))
+
+(defbinstruct opaque-element-array-struct-2 ()
+  (%m (length (aref array 0)) :type (unsigned-byte 8))
+  (%n (length array) :type (unsigned-byte 8))
+  (array (make-array 0 :element-type 'byte-array) :type (simple-array (byte-array %m) (%n))))
+
+(define-test opaque-element-array :parent suite
+  (is-rw-equalp (opaque-element-array-struct-1)
+    (#(4 1 2 3 4 5 6 7 8 9 10 11 12)
+      (make-opaque-element-array-struct-1
+       :array (make-array 3 :element-type 'byte-array
+                            :initial-contents (list (coerce '(1 2 3 4) 'byte-array) (coerce '(5 6 7 8) 'byte-array) (coerce '(9 10 11 12) 'byte-array))))))
+  (is-rw-equalp (opaque-element-array-struct-2)
+    (#(4 3 1 2 3 4 5 6 7 8 9 10 11 12)
+      (make-opaque-element-array-struct-2
+       :array (make-array 3 :element-type 'byte-array
+                            :initial-contents (list (coerce '(1 2 3 4) 'byte-array) (coerce '(5 6 7 8) 'byte-array) (coerce '(9 10 11 12) 'byte-array)))))))
+
 (defbinenum (enum-struct-enum (:type (unsigned-byte 8))) ()
   a (b 1) c)
 

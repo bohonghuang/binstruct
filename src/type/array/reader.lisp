@@ -1,16 +1,19 @@
 (in-package #:binstruct)
 
-(defparser sequence/fixed-length (element length &optional (type 'simple-array))
+(defparser sequence/fixed-length (element length &optional (type '(simple-array t (*))) (transform #'identity))
   (for ((list (rep element length length)))
     (declare (type list list))
     (unless (eq type 'null)
-      (coerce list type))))
+      (coerce (funcall transform list) type))))
 
-(defparser sequence/until-failure (element &optional (type 'simple-array))
+(defparser sequence/until-failure (element &optional (type '(simple-array t (*))) (transform #'identity))
   (for ((list (rep element)))
     (declare (type list list))
     (unless (eq type 'null)
-      (coerce list type))))
+      (coerce (funcall transform list) type))))
+
+(defun flatten-list (list)
+  (mapcan #'identity list))
 
 (defparser skip (n)
   (let ((position (position)))
@@ -61,27 +64,36 @@
               `(let ((,length (constantly ,(case dimension (* 0) (t dimension)))))
                  (declare (type non-negative-fixnum ,length))
                  (let ((,count (constantly (ceiling ,length ,(length elements)))))
-                   (declare (type non-negative-fixnum ,count))
-                   ,(if name
-                        `(let ((,array (constantly (make-array ,length :element-type ',(lisp-type element-type)
-                                                                       :initial-element ,(type-default-value element-type)
-                                                                       ,@(case dimension (* `(:fill-pointer 0 :adjustable t))))))
-                               (,index (constantly 0)))
-                           (declare (type (,(case dimension (* 'array) (t 'simple-array)) ,(lisp-type element-type) (*)) ,array)
-                                    (type non-negative-fixnum ,index))
-                           (for ((nil (rep (let* ,bindings
-                                             ((lambda ()
-                                                ,@(loop :for element :in elements
-                                                        :for i :from 0
-                                                        :collect `(,@(if (or (zerop i) (eq dimension '*)) '(progn) `(when (< ,index ,length)))
-                                                                   ,(case dimension
-                                                                      (* `(vector-push-extend ,element ,array))
-                                                                      (t `(setf (aref ,array ,index) ,element)))
-                                                                   (incf ,index)))
-                                                (parser (constantly nil)))))
-                                           ,count ,(case dimension (* most-positive-fixnum) (t count)))))
-                             (setf ,array (coerce ,array '(,array-type ,(lisp-type element-type) (*))))))
-                        `(progn (rep (let* ,bindings (constantly nil)) ,length ,length) (constantly nil)))))))))))
+                   (declare (type non-negative-fixnum ,count) (ignorable ,count))
+                   ,(let ((count-max (case dimension (* most-positive-fixnum) (t count))))
+                      (if name
+                          (let ((initial-element (type-default-value element-type)))
+                            (if (eq initial-element +type-default-value-unknown+)
+                                (let ((parser `(sequence/fixed-length
+                                                (let* ,bindings (list . ,(mapcar (curry #'list 'constantly) elements)))
+                                                ,count '(,array-type ,(lisp-type element-type) (*)) #'flatten-list)))
+                                  (case dimension
+                                    (* (setf (car parser) 'sequence/until-failure) (delete count parser))
+                                    (t parser)))
+                                `(let ((,array (constantly (make-array ,length :element-type ',(lisp-type element-type)
+                                                                               :initial-element ,initial-element
+                                                                               ,@(case dimension (* `(:fill-pointer 0 :adjustable t))))))
+                                       (,index (constantly 0)))
+                                   (declare (type (,(case dimension (* 'array) (t 'simple-array)) ,(lisp-type element-type) (*)) ,array)
+                                            (type non-negative-fixnum ,index))
+                                   (for ((nil (rep (let* ,bindings
+                                                     ((lambda ()
+                                                        ,@(loop :for element :in elements
+                                                                :for i :from 0
+                                                                :collect `(,@(if (or (zerop i) (eq dimension '*)) '(progn) `(when (< ,index ,length)))
+                                                                           ,(case dimension
+                                                                              (* `(vector-push-extend ,element ,array))
+                                                                              (t `(setf (aref ,array ,index) ,element)))
+                                                                           (incf ,index)))
+                                                        (parser (constantly nil)))))
+                                                   ,count ,count-max)))
+                                     (setf ,array (coerce ,array '(,array-type ,(lisp-type element-type) (*))))))))
+                          `(progn (rep (let* ,bindings (constantly (progn . ,elements))) ,count ,count-max) (constantly nil))))))))))))
 
 (defmethod parsonic::expand-expr ((name (eql 'simple-array)) &rest args)
   (destructuring-bind (type (length)) args
