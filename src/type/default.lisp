@@ -27,4 +27,12 @@
        ('t nil)))))
 
 (defun type-default-value (type)
-  (lisp-type-default-value (lisp-type type)))
+  (handler-case (lisp-type-default-value (lisp-type type))
+    (error () 'type-default-value)))
+
+(defun slot-default-value (&optional (slot (first *slots*)) (default nil defaultp))
+  (assert (cdr slot))
+  (let ((value (cadr slot)))
+    (case value
+      (type-default-value (if defaultp default (type-default-value (slot-type slot))))
+      (t value))))

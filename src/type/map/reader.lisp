@@ -2,7 +2,7 @@
 
 (defmethod expand-reader-type-expr ((name (eql 'values)) &rest args)
   (destructuring-bind (type) args
-    `(let* ,(slots-parser-bindings `((,(slot-name) nil :type ,type)))
+    `(let* ,(slots-parser-bindings `((,(slot-name) type-default-value :type ,type)))
        (constantly ,(slot-name)))))
 
 (defmethod lisp-type-expr ((name (eql 'values)) &rest args)

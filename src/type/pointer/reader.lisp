@@ -70,7 +70,7 @@
                         (lambda (,thunk)
                           (if-let ((,position (pointer-base-position ',base ,thunk)))
                             (funcall ,thunk ,position)
-                            (parser (constantly ,(type-default-value data-type)))))
+                            (parser (constantly ,(slot-default-value slot (type-default-value data-type))))))
                         (lambda (,position)
                           (declare (type non-negative-fixnum ,position))
                           (parser

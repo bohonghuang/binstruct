@@ -32,7 +32,7 @@
   (destructuring-bind (index i type) args
     (with-gensyms (var)
       (let ((*place* (place-lambda (value) (place-set (place-parent) value))))
-        (let ((bindings (slots-parser-bindings `((,var nil :type ,type)))))
+        (let ((bindings (slots-parser-bindings `((,var type-default-value :type ,type)))))
           (cond
             ((place-used-p *place*)
              `(let ((,index (constantly (+ ,index ,i))))
@@ -50,7 +50,7 @@
     (with-gensyms (array index length count)
       (let ((name (car (first *slots*))))
         (multiple-value-bind (bindings elements)
-            (let ((*slots* (with-gensyms (slot) (list (list slot))))
+            (let ((*slots* (with-gensyms (slot) `((,slot type-default-value :type ,element-type))))
                   (*place* (place-lambda (value) `(when (< ,index (length ,array)) (setf (aref ,array ,index) ,value))))
                   (*offset* 0))
               (let* ((slots (loop :for i :below (denominator (type-offset element-type))
@@ -68,7 +68,7 @@
                    ,(let ((count-max (case dimension (* most-positive-fixnum) (t count))))
                       (if name
                           (let ((initial-element (type-default-value element-type)))
-                            (if (eq initial-element +type-default-value-unknown+)
+                            (if (eq initial-element 'type-default-value)
                                 (let ((parser `(sequence/fixed-length
                                                 (let* ,bindings (list . ,(mapcar (curry #'list 'constantly) elements)))
                                                 ,count '(,array-type ,(lisp-type element-type) (*)) #'flatten-list)))

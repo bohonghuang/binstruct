@@ -88,7 +88,7 @@
     (push type *inline*)
     `(funcall ,type ,*output* ,*value*)))
 
-(defun expand-writer-type-unit (type &key (endian *endian*) (offset 0) (output *output*) (value *value*) (slots nil))
+(defun expand-writer-type-unit (type &key (endian *endian*) (offset 0) (output *output*) (value *value*) (slots `((,(gensym) type-default-value :type ,type))))
   `(progn
      ,(when (and (boundp '*output*) (boundp '*offset*))
         (finish-writer-partial-byte))

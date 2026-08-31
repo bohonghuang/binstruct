@@ -21,6 +21,9 @@
 (defun slot-name (&optional (slot (first *slots*)))
   (car slot))
 
+(defun slot-type (&optional (slot (first *slots*)))
+  (getf slot :type))
+
 (define-constant +excluded-slot-prefixes+ '(#\$ #\%) :test #'equal)
 
 (defun slot-excluded-p (&optional (slot (first *slots*)))

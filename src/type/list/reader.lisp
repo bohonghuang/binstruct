@@ -20,7 +20,9 @@
                                     (var-car `(car ,cons))
                                     (var-cdr `(cdr ,cons)))
                                  ,value))))
-             (bindings (slots-parser-bindings `((,var-car nil :type ,car) (,var-cdr nil :type ,cdr)))))
+             (bindings (slots-parser-bindings
+                        `((,var-car type-default-value :type ,car)
+                          (,var-cdr type-default-value :type ,cdr)))))
         (if (place-used-p *place*)
             `(let* ((,cons (constantly nil)) . ,bindings)
                (constantly (setf ,cons (cons ,var-car ,var-cdr))))

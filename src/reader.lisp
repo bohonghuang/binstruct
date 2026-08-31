@@ -56,9 +56,9 @@
     (let ((*endian* endian)
           (*offset* offset)
           (*bindings* t)
-          (*slots* (or (when (boundp '*slots*) *slots*) (with-gensyms (slot) (list (list slot)))))
+          (*slots* (or (when (boundp '*slots*) *slots*) (with-gensyms (slot) `((,slot type-default-value :type ,type)))))
           (*place* (place-lambda (value) `(unless (eq ,unit ',null) (funcall ,setter ,value)))))
-      (let* ((name (slot-name)) (bindings (slots-parser-bindings `((,name nil :type ,type)))))
+      (let* ((name (slot-name)) (bindings (slots-parser-bindings `((,name type-default-value :type ,type)))))
         (cond
           ((place-used-p *place*)
            `(let* ((,setter (constantly (lambda (,value) ,(place-set (place-parent *place*) value))))
