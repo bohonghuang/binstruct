@@ -23,8 +23,7 @@
        ('structure-object
         (let ((constructor (find-symbol (format nil "~A-~A" '#:make type) (symbol-package type))))
           (assert (fboundp constructor))
-          `(load-time-value (,constructor))))
-       ('t nil)))))
+          `(load-time-value (,constructor))))))))
 
 (defun type-default-value (type)
   (handler-case (lisp-type-default-value (lisp-type type))
