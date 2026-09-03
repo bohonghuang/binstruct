@@ -29,6 +29,13 @@
   (handler-case (lisp-type-default-value (lisp-type type))
     (error () 'type-default-value)))
 
+(define-condition unknown-type-default-value (error) ())
+
+(defmacro unknown-type-default-value ()
+  (error 'unknown-type-default-value))
+
+(define-symbol-macro type-default-value (unknown-type-default-value))
+
 (defun slot-default-value (&optional (slot (first *slots*)) (default nil defaultp))
   (assert (cdr slot))
   (let ((value (cadr slot)))
