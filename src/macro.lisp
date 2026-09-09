@@ -190,7 +190,7 @@
              (format stream "Unresolved position ~A" (unresolved-position-error-name condition)))))
 
 (defmacro defbinio (type &optional (iotype t))
-  (destructuring-bind (name &rest lambda-list) (ensure-list type)
+  (destructuring-bind (name &rest lambda-list &aux (*package* (symbol-package name))) (ensure-list type)
     (let ((reader (symbolicate '#:read- name))
           (writer (symbolicate '#:write- name))
           (struct `(,name . ,(parsonic::lambda-list-arguments lambda-list))))
