@@ -2,30 +2,55 @@
 
 (declaim (inline signed-unsigned-integer))
 (defun signed-unsigned-integer (signed nbits)
-  (if (minusp signed)
-      (+ signed (ash 1 nbits))
-      signed))
+  (ldb (byte nbits 0) signed))
 
 (declaim (ftype (function (emitter-output non-negative-integer non-negative-fixnum)) emit-unsigned-integer/le))
 (defun emit-unsigned-integer/le (output integer n)
-  (loop :for shift :of-type non-negative-fixnum :from 0 :below n :by 8
+  (loop :for shift :of-type fixnum :from 0 :below n :by 8
         :do (emitter-output-byte output (ldb (byte 8 shift) integer))))
 
 (declaim (ftype (function (emitter-output non-negative-integer non-negative-fixnum)) emit-unsigned-integer/be))
 (defun emit-unsigned-integer/be (output integer n)
-  (loop :for shift :of-type #+sbcl fixnum #-sbcl non-negative-fixnum :downfrom (- n 8) :to 0 :by 8
+  (loop :for shift :of-type fixnum :downfrom (- n 8) :to 0 :by 8
         :do (emitter-output-byte output (ldb (byte 8 shift) integer))))
+
+(defmacro define-unsigned-integer-emitters ()
+  (loop :with mappings
+        :for n :from 8 :to (max +word-size+ 64) :by 8
+        :nconc (loop :for endian :in '(:little :big)
+                     :for name := (setf (assoc-value mappings (list n endian) :test #'equal)
+                                        (intern (format nil "~A-~D/~A" 'emit-unsigned-integer n (ecase endian (:little 'le) (:big 'be)))))
+                     :collect `(progn
+                                 (declaim (ftype (function (emitter-output (unsigned-byte ,n))) ,name). ,(when (= n 8) `((inline ,name))))
+                                 ,(with-gensyms (output integer)
+                                    `(defun ,name (,output ,integer)
+                                       ,@(loop :for i :from 0 :below (/ n 8)
+                                               :for shift := (ecase endian
+                                                               (:little (* i 8))
+                                                               (:big (- n (* (1+ i) 8))))
+                                               :collect `(emitter-output-byte ,output (ldb (byte 8 ,shift) ,integer)))))))
+          :into emitters
+        :finally
+           (return
+             (with-gensyms (output value n endian emitter)
+               `(progn
+                  (defun emit-unsigned-integer-form (,output ,value ,n &optional (,endian *endian*))
+                    (if-let ((,emitter (assoc-value ',mappings (list ,n ,endian) :test #'equal)))
+                      `(,,emitter ,,output ,,value)
+                      `(,(ecase ,endian
+                           (:little 'emit-unsigned-integer/le)
+                           (:big 'emit-unsigned-integer/be))
+                        ,,output ,,value ,,n)))
+                  (defmacro emit-unsigned-integer (,output ,value ,n ,endian)
+                    (emit-unsigned-integer-form ,output ,value ,n ,endian))
+                  ,@emitters)))))
+
+(define-unsigned-integer-emitters)
 
 (defmethod expand-writer-type-expr ((name (eql 'signed-byte)) &rest args)
   (let ((*value* `(signed-unsigned-integer ,*value* . ,args)))
     (expand-writer-type `(unsigned-byte . ,args))))
 
-(defun unsigned-integer-emitter ()
-  (ecase *endian*
-    (:little 'emit-unsigned-integer/le)
-    (:big 'emit-unsigned-integer/be)))
-
-(declaim (inline make-emitter-bitfield-output))
 (defstruct emitter-bitfield-output
   (output nil :type t)
   (value nil :type integer)
@@ -40,8 +65,10 @@
       (pad ()
         :report "Pad remaining bits and continue."
         `(progn
-           (,(unsigned-integer-emitter) (emitter-bitfield-output-output ,*output*)
-            (emitter-bitfield-output-value ,*output*) ,(* (- (setf *offset* (ceiling *offset*)) offset) 8))
+           ,(emit-unsigned-integer-form
+             `(emitter-bitfield-output-output ,*output*)
+             `(emitter-bitfield-output-value ,*output*)
+             (* (- (setf *offset* (ceiling *offset*)) offset) 8))
            (setf ,*output* (emitter-bitfield-output-output ,*output*))))
       (ignore ()
         :report "Ignore the partial-byte boundary and continue."
@@ -54,7 +81,7 @@
       (incf *offset* (/ n 8))
       (if (and (integerp offset) (integerp start))
           (if (integerp *offset*)
-              `(,(unsigned-integer-emitter) ,*output* ,*value* ,n)
+              (emit-unsigned-integer-form *output* *value* n)
               (progn
                 (assert (null (get *output* 'offset)))
                 (setf (get *output* 'offset) offset)
@@ -63,11 +90,13 @@
              (setf (ldb (byte ,n ,(* (- offset start) 8)) (emitter-bitfield-output-value ,*output*)) (the (unsigned-byte ,n) ,*value*))
              ,(when (integerp *offset*)
                 `(progn
-                   (,(unsigned-integer-emitter) (emitter-bitfield-output-output ,*output*)
-                    (emitter-bitfield-output-value ,*output*) ,(let ((bytes (- *offset* (shiftf (get *output* 'offset) nil))))
-                                                         (if (integerp bytes)
-                                                             `(setf (emitter-bitfield-output-size ,*output*) ,(* bytes 8))
-                                                             `(emitter-bitfield-output-size ,*output*))))
+                   ,(emit-unsigned-integer-form
+                     `(emitter-bitfield-output-output ,*output*)
+                     `(emitter-bitfield-output-value ,*output*)
+                     (let ((bytes (- *offset* (shiftf (get *output* 'offset) nil))))
+                       (if (integerp bytes)
+                           `(setf (emitter-bitfield-output-size ,*output*) ,(* bytes 8))
+                           `(emitter-bitfield-output-size ,*output*))))
                    (setf ,*output* (emitter-bitfield-output-output ,*output*)))))))))
 
 (defmethod expand-writer-type-expr ((name (eql 'bit)) &rest args)
