@@ -1,6 +1,7 @@
 (in-package #:binstruct)
 
 (defvar *endian*)
+(defvar *alignment*)
 (defvar *offset*)
 (defvar *slots*)
 (defvar *bindings*)
@@ -8,6 +9,7 @@
 (defvar *positions*)
 
 (defconstant +endian-default+ :little)
+(defconstant +alignment-default+ 1)
 
 (declaim (type list *positions*))
 

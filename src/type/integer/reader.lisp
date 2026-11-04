@@ -88,8 +88,8 @@
 (defmethod expand-reader-type-expr ((name (eql 'unsigned-byte)) &rest args)
   (destructuring-bind (n) args
     (let* ((offset (prog1 *offset* (incf *offset* (/ n 8))))
-           (binding (if (integerp offset)
-                        (if (zerop (mod n 8))
+           (binding (if (zerop (mod offset *alignment*))
+                        (if (zerop (mod (/ n 8) *alignment*))
                             (return-from expand-reader-type-expr (integer-type-parser (cons name args) *endian*))
                             (with-gensyms (byte)
                               (let ((binding `(,byte ,offset)))
@@ -102,7 +102,7 @@
         (assert (null (symbol-package byte)))
         (prog1 (let ((bit-offset (/ (- offset start) 1/8)))
                  `(constantly (the (unsigned-byte ,n) (ldb (byte ,n ,bit-offset) ,byte))))
-          (when (integerp *offset*)
+          (when (zerop (mod *offset* *alignment*))
             (setf (symbol-plist byte) nil
                   (second binding) `(constantly 0)
                   (car parser) (let ((bytes (- *offset* start)) (*offset* 0))

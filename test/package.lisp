@@ -36,7 +36,7 @@
                                    (is ,test ,expected (funcall ,reader-compiled ,bytes)))
                                  (let ((,output (make-array 0 :element-type '(unsigned-byte 8) :adjustable t :fill-pointer 0)))
                                    (let ((binstruct::*positions* nil))
-                                     ,(binstruct::expand-writer-type-unit struct :endian :little :output `(binstruct::vector-emitter-output ,output) :value expected)
+                                     ,(binstruct::expand-writer-type-unit struct :endian :little :alignment binstruct::+alignment-default+ :output `(binstruct::vector-emitter-output ,output) :value expected)
                                      (binstruct::flush-pointer-positions))
                                    (let* ((,writer-eval (coerce ,output '(simple-array (unsigned-byte 8) (*))))
                                           (,writer-compiled ,writer-eval))
@@ -126,6 +126,40 @@
   (is-rw-equalp (bitfield-struct)
     (#(#b10011101 #b10010001 #b00000001 #b0000000 #b11111111)
       (make-bitfield-struct :a t :b 0 :c 3 :d 9 :e -111 :f -32768 :g 127))))
+
+(defbinenum (word-bitfield-byte (:type (unsigned-byte 8))) ()
+  (byte-value #xC2))
+
+(defbinenum (word-bitfield-word (:type (unsigned-byte 32)) (:alignment 4)) ()
+  (word-value #x98765432))
+
+(defbinstruct (word-bitfield-struct (:alignment 4)) ()
+  (a nil :type (boolean bit))
+  (b 0 :type (unsigned-byte 7))
+  (c 'byte-value :type word-bitfield-byte)
+  (d 0 :type (unsigned-byte 16))
+  (e 0 :type (unsigned-byte 8))
+  (f 0 :type (unsigned-byte 24))
+  (g 'word-value :type word-bitfield-word))
+
+(defbinstruct (big-endian-word-bitfield-struct (:endian :big) (:alignment 4)) ()
+  (a nil :type (boolean bit))
+  (b 0 :type (unsigned-byte 7))
+  (c 'byte-value :type word-bitfield-byte)
+  (d 0 :type (unsigned-byte 16))
+  (e 0 :type (unsigned-byte 8))
+  (f 0 :type (unsigned-byte 24))
+  (g 'word-value :type word-bitfield-word))
+
+(define-test word-bit-field :parent suite
+  (is-rw-equalp (word-bitfield-struct)
+    (#(#xD3 #xC2 #xB1 #xA0 #xEF #x56 #x34 #x12 #x32 #x54 #x76 #x98)
+     (make-word-bitfield-struct
+      :a t :b #x69 :c 'byte-value :d #xA0B1 :e #xEF :f #x123456 :g 'word-value)))
+  (is-rw-equalp (big-endian-word-bitfield-struct)
+    (#(#xA0 #xB1 #xC2 #xD3 #x12 #x34 #x56 #xEF #x98 #x76 #x54 #x32)
+     (make-big-endian-word-bitfield-struct
+      :a t :b #x69 :c 'byte-value :d #xA0B1 :e #xEF :f #x123456 :g 'word-value))))
 
 (defbinstruct base-string-struct ()
   (length 0 :type (unsigned-byte 32))

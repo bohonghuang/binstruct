@@ -55,8 +55,8 @@
     (let* ((offset *offset*)
            (start (or (get *output* 'offset) offset)))
       (incf *offset* (/ n 8))
-      (if (and (integerp offset) (integerp start))
-          (if (integerp *offset*)
+      (if (and (zerop (mod offset *alignment*)) (zerop (mod start *alignment*)))
+          (if (zerop (mod *offset* *alignment*))
               `(,(unsigned-integer-emitter) ,*output* ,*value* ,n)
               (progn
                 (assert (null (get *output* 'offset)))
@@ -64,7 +64,7 @@
                 `(setf ,*output* (make-emitter-bitfield-output :output ,*output* :value ,*value*))))
           `(progn
              (setf (ldb (byte ,n ,(* (- offset start) 8)) (emitter-bitfield-output-value ,*output*)) (the (unsigned-byte ,n) ,*value*))
-             ,(when (integerp *offset*)
+             ,(when (zerop (mod *offset* *alignment*))
                 `(progn
                    (,(unsigned-integer-emitter) (emitter-bitfield-output-output ,*output*)
                     (emitter-bitfield-output-value ,*output*)

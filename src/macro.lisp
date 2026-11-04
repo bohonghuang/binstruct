@@ -5,9 +5,11 @@
     (destructuring-bind (&key
                            (type '(unsigned-byte 32))
                            (endian +endian-default+ endianp)
+                           (alignment +alignment-default+ alignmentp)
                          &allow-other-keys
                          &aux
-                           (*endian* endian))
+                           (*endian* endian)
+                           (*alignment* alignment))
         (mappend #'identity options)
       (let ((pack (symbolicate name '#:- 'integer))
             (unpack (symbolicate 'integer '#:- name))
@@ -34,13 +36,15 @@
              (eval-when (:compile-toplevel :load-toplevel :execute)
                (defmethod expand-reader-type-expr ((,op (eql ',name)) &rest ,args)
                  (destructuring-bind ,lambda-list ,args
-                   `(for ((,',value ,(let ,(when endianp `((*endian* ,endian)))
+                   `(for ((,',value ,(let ,(append (when endianp `((*endian* ,endian)))
+                                                   (when alignmentp `((*alignment* ,alignment))))
                                        (expand-reader-type ',type))))
                       (,',unpack ,',value))))
                (defmethod expand-writer-type-expr ((,op (eql ',name)) &rest ,args)
                  (destructuring-bind ,lambda-list ,args
                    (let ((*value* `(,',pack ,,'*value*))
-                         . ,(when endianp `((*endian* ,endian))))
+                         . ,(append (when endianp `((*endian* ,endian)))
+                                    (when alignmentp `((*alignment* ,alignment)))))
                      (expand-writer-type ',type)))))))))))
 
 (defmacro defbinstruct (name-and-options lambda-list &rest slots)
@@ -54,10 +58,12 @@
              (constructor (symbolicate '#:make- type) constructorp)
              (conc-name (symbolicate type '-))
              (endian +endian-default+)
+             (alignment +alignment-default+)
              (include nil)
            &allow-other-keys
            &aux
              (*endian* endian)
+             (*alignment* alignment)
              (*offset* 0)
              (*place* (place-lambda (value)
                         `(unless (eq ,self ',null)
@@ -67,7 +73,7 @@
                                `(setf (,(symbolicate type '- (slot-name)) ,self) ,value))
                               (t (place-set (place-null) value)))))))
           (mappend #'identity options)
-        (delete-from-plistf args :constructor :include :endian)
+        (delete-from-plistf args :constructor :include :endian :alignment)
         (labels ((slots (&optional (slots (cons (car (ensure-list include)) slots)))
                    (loop :for slot :in slots
                          :when (symbolp slot)
@@ -215,6 +221,7 @@
                ,(expand-writer-type-unit
                  struct
                  :endian '#:specified-by-type
+                 :alignment +alignment-default+
                  :output (eswitch (iotype :test #'equal)
                            ('(simple-array (unsigned-byte 8) (*))
                              (prog1 `(etypecase ,output
