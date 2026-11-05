@@ -75,7 +75,7 @@
                                               (let* ,bindings (list . ,(mapcar (curry #'list 'constantly) elements)))
                                               ,count '(,array-type ,(lisp-type element-type) (*)) #'flatten-list)))
                                 (case dimension
-                                  (* (setf (car parser) 'sequence/until-failure) (delete count parser))
+                                  (* (setf (car parser) 'sequence/until-failure) (remove count parser))
                                   (t parser)))
                               `(let ((,array (constantly (make-array ,length :element-type ',(lisp-type element-type)
                                                                              :initial-element ,initial-element
