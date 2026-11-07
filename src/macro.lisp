@@ -17,7 +17,7 @@
                           :for (name value) := (ensure-list field)
                           :for integer := (or value 0) :then (or value (1+ integer))
                           :collect (list name integer))))
-        (with-gensyms (op value args)
+        (with-gensyms (value)
           `(progn
              (deftype ,name ()
                '(member . ,(mapcar #'first fields)))
@@ -33,19 +33,21 @@
                (for ((,value ,(handler-bind ((partial-byte-error (lambda (c) (declare (ignore c)) (invoke-restart 'pad))))
                                 (expand-reader-type-unit type))))
                  (,unpack ,value)))
-             (eval-when (:compile-toplevel :load-toplevel :execute)
-               (defmethod expand-reader-type-expr ((,op (eql ',name)) &rest ,args)
-                 (destructuring-bind ,lambda-list ,args
-                   `(for ((,',value ,(let ,(append (when endianp `((*endian* ,endian)))
-                                                   (when alignmentp `((*alignment* ,alignment))))
-                                       (expand-reader-type ',type))))
-                      (,',unpack ,',value))))
-               (defmethod expand-writer-type-expr ((,op (eql ',name)) &rest ,args)
-                 (destructuring-bind ,lambda-list ,args
-                   (let ((*value* `(,',pack ,,'*value*))
-                         . ,(append (when endianp `((*endian* ,endian)))
-                                    (when alignmentp `((*alignment* ,alignment)))))
-                     (expand-writer-type ',type)))))))))))
+             ,(let ((reader-type-expander (symbolicate '#:type-of- (parsonic::parser-name-symbol name)))
+                    (writer-type-expander (symbolicate '#:type-of- (emitter-name-symbol name))))
+                `(eval-when (:compile-toplevel :load-toplevel :execute)
+                   (defun ,reader-type-expander ,lambda-list
+                     `(for ((,',value ,(let ,(append (when endianp `((*endian* ,endian)))
+                                                     (when alignmentp `((*alignment* ,alignment))))
+                                         (expand-reader-type ',type))))
+                        (,',unpack ,',value)))
+                   (defun ,writer-type-expander ,lambda-list
+                     (let ((*value* `(,',pack ,,'*value*))
+                           . ,(append (when endianp `((*endian* ,endian)))
+                                      (when alignmentp `((*alignment* ,alignment)))))
+                       (expand-writer-type ',type)))
+                   (setf (get ',name 'expand-reader-type-expr) #',reader-type-expander
+                         (get ',name 'expand-writer-type-expr) #',writer-type-expander)))))))))
 
 (defmacro defbinstruct (name-and-options lambda-list &rest slots)
   (destructuring-bind (name &rest options &aux (*package* (symbol-package name))) (ensure-list name-and-options)
@@ -101,11 +103,8 @@
                        . ,(loop :for slot :in defstruct-slots
                                 :for (name initform . options) := slot
                                 :collect (list* (getf slot :slot name) initform (nconc (remove-from-plist options :type) (list :type (lisp-type (getf options :type))))))))
-                 ,(with-gensyms (var args)
-                    `(defmethod lisp-type-expr ((,var (eql ',name)) &rest ,args)
-                       (declare (ignore ,var ,args))
-                       ',type))
-                 (setf (get ',name 'slots) ',(cons (car include) slots)))
+                 (setf (get ',name 'slots) ',(cons (car include) slots)
+                       (get ',name 'lisp-type-expr) (constantly ',type)))
                (progn
                  (defparser ,constructor ,(mapcar #'car all-slots)
                    (constantly

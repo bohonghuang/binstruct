@@ -17,6 +17,8 @@
   (:method (name &rest args)
     (if args (cons name args) name)))
 
+(parsonic::define-symbol-expr-expander lisp-type-expr)
+
 (defun lisp-type (type)
   (apply #'lisp-type-expr (ensure-list type)))
 

@@ -80,6 +80,8 @@
        ,(finish-writer-partial-byte)
        (,(emitter-name-symbol name) ,*output* ,*value* . ,args))))
 
+(parsonic::define-symbol-expr-expander expand-writer-type-expr)
+
 (defun expand-writer-type (desc)
   (apply #'expand-writer-type-expr (ensure-list desc)))
 

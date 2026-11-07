@@ -15,6 +15,8 @@
     (finish-reader-partial-byte)
     (cons name args)))
 
+(parsonic::define-symbol-expr-expander expand-reader-type-expr)
+
 (defun expand-reader-type (desc)
   (apply #'expand-reader-type-expr (ensure-list desc)))
 
