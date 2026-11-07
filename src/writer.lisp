@@ -74,11 +74,15 @@
         (name (concatenate 'string +emitter-name-prefix+ (symbol-name name))))
     (if intern (intern name package) (find-symbol name package))))
 
+(defun expand-writer-type-expr-default (name &rest args)
+  `(progn
+     ,(finish-writer-partial-byte)
+     (,(emitter-name-symbol name) ,*output* ,*value* . ,args)))
+
 (defgeneric expand-writer-type-expr (name &rest args)
-  (:method (name &rest args)
-    `(progn
-       ,(finish-writer-partial-byte)
-       (,(emitter-name-symbol name) ,*output* ,*value* . ,args))))
+  (:method (name &rest args) (apply #'expand-writer-type-expr-default name args)))
+
+(parsonic::define-symbol-expr-expander expand-writer-type-expr)
 
 (defun expand-writer-type (desc)
   (apply #'expand-writer-type-expr (ensure-list desc)))

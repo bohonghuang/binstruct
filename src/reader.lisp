@@ -10,10 +10,14 @@
         (ignore ()
           :report "Ignore the partial-byte boundary and continue.")))))
 
+(defun expand-reader-type-expr-default (name &rest args)
+  (finish-reader-partial-byte)
+  (cons name args))
+
 (defgeneric expand-reader-type-expr (name &rest args)
-  (:method (name &rest args)
-    (finish-reader-partial-byte)
-    (cons name args)))
+  (:method (name &rest args) (apply #'expand-reader-type-expr-default name args)))
+
+(parsonic::define-symbol-expr-expander expand-reader-type-expr)
 
 (defun expand-reader-type (desc)
   (apply #'expand-reader-type-expr (ensure-list desc)))
