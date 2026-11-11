@@ -28,7 +28,7 @@
 (defun slot-type (&optional (slot (first *slots*)))
   (getf slot :type))
 
-(define-constant +excluded-slot-prefixes+ '(#\$ #\%) :test #'equal)
+(define-constant +excluded-slot-prefixes+ '(#\$ #\% #\*) :test #'equal)
 
 (defun slot-excluded-p (&optional (slot (first *slots*)))
   (if (slot-name slot) (member (aref (symbol-name (slot-name slot)) 0) +excluded-slot-prefixes+) t))

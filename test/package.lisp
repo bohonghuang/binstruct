@@ -290,6 +290,44 @@
        :data (make-array 4 :element-type '(unsigned-byte 8)
                            :initial-contents '(1 2 3 4))))))
 
+(defvar *size*)
+
+(defbinstruct dynamic-variables-inline-struct ()
+  (data (make-array 0 :element-type '(unsigned-byte 8))
+        :type (simple-array (unsigned-byte 8) (*size*))))
+
+(defbinstruct (dynamic-variables-derived-inline-struct (:include dynamic-variables-inline-struct)) ()
+  (tag 0 :type (unsigned-byte 16)))
+
+(defbinstruct dynamic-variables-struct (type)
+  (*size* (length (dynamic-variables-inline-struct-data body)) :type (unsigned-byte 8))
+  (body nil :type (inline type)))
+
+(define-test dynamic-variables :parent suite
+  (let ((*size* 42))
+    (is-rw-equalp (dynamic-variables-struct (dynamic-variables-inline-struct))
+      (#(0)
+        (make-dynamic-variables-struct
+         :body (make-dynamic-variables-inline-struct)))
+      (#(1 255)
+        (make-dynamic-variables-struct
+         :body (make-dynamic-variables-inline-struct
+                :data (make-array 1 :element-type '(unsigned-byte 8) :initial-contents '(255)))))
+      (#(4 1 2 3 4)
+        (make-dynamic-variables-struct
+         :body (make-dynamic-variables-inline-struct
+                :data (make-array 4 :element-type '(unsigned-byte 8) :initial-contents '(1 2 3 4))))))
+    (is-rw-equalp (dynamic-variables-struct (dynamic-variables-derived-inline-struct))
+      (#(0 #x34 #x12)
+        (make-dynamic-variables-struct
+         :body (make-dynamic-variables-derived-inline-struct :tag #x1234)))
+      (#(3 10 20 30 #xCD #xAB)
+        (make-dynamic-variables-struct
+         :body (make-dynamic-variables-derived-inline-struct
+                :data (make-array 3 :element-type '(unsigned-byte 8) :initial-contents '(10 20 30))
+                :tag #xABCD))))
+    (is = 42 *size*)))
+
 (defbinstruct sentinel-terminated-array-element ()
   (nil #x12 :type (satisfies (unsigned-byte 8))))
 
