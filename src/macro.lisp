@@ -164,7 +164,15 @@
                            (resolve-pointer-positions ,positions)))
                        ,(when *inline*
                           `(eval-when (:compile-toplevel :load-toplevel :execute)
-                             (setf (get ',name 'expand-writer-type-expr)
+                             (setf (get ',name 'expand-reader-type-expr)
+                                   (lambda ,lambda-list
+                                     (expand-reader-type-expr-default
+                                      ',name . ,(loop :for arg :in (parsonic::lambda-list-arguments lambda-list)
+                                                      :if (member arg *inline*)
+                                                        :collect `(expand-reader-type ,arg)
+                                                      :else
+                                                        :collect arg)))
+                                   (get ',name 'expand-writer-type-expr)
                                    (lambda ,lambda-list
                                      (expand-writer-type-expr-default
                                       ',name . ,(loop :for arg :in (parsonic::lambda-list-arguments lambda-list)
@@ -204,7 +212,10 @@
              (let ((*positions* nil))
                (multiple-value-bind (,result ,error)
                    (parser-run
-                    (parser ,struct)
+                    (parser ,(expand-reader-type-unit
+                              struct
+                              :endian '#:specified-by-type
+                              :alignment +alignment-default+))
                     ,(case iotype
                        ((t) input)
                        ((stream) `(the parsonic::binary-input-stream ,input))

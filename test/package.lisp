@@ -22,9 +22,11 @@
     (let ((reader-eval (make-symbol (format nil "~A [~A]" struct '#:reader/eval)))
           (reader-compiled (make-symbol (format nil "~A [~A]" struct '#:reader/compiled)))
           (writer-eval (make-symbol (format nil "~A [~A]" struct '#:writer-eval)))
-          (writer-compiled (make-symbol (format nil "~A [~A]" struct '#:writer-compiled))))
-      `(let* ((,reader-eval (lambda (,input) (parser-run (parser ,struct) ,input)))
-              (,reader-compiled (lambda (,input) (parser-run (parser ,struct) (the (simple-array (unsigned-byte 8) (*)) ,input)))))
+          (writer-compiled (make-symbol (format nil "~A [~A]" struct '#:writer-compiled)))
+          (binstruct::*endian* binstruct::+endian-default+)
+          (binstruct::*alignment* binstruct::+alignment-default+))
+      `(let* ((,reader-eval (lambda (,input) (parser-run (parser ,(binstruct::expand-reader-type-unit struct)) ,input)))
+              (,reader-compiled (lambda (,input) (parser-run (parser ,(binstruct::expand-reader-type-unit struct)) (the (simple-array (unsigned-byte 8) (*)) ,input)))))
          ,@(loop :for (input expected) :in tests
                  :for bytes := (make-symbol (format nil "~A" input))
                  :collect (once-only (expected)
@@ -631,6 +633,11 @@
       (make-parametric-type-struct
        :body (make-array 4 :element-type '(unsigned-byte 8) :initial-contents '(1 2 3 4))
        :size 4)))
+  (is-rw-equalp (parametric-type-struct (simple-array (unsigned-byte 4) (4)))
+    (#(#x21 #x43)
+      (make-parametric-type-struct
+       :body (make-array 4 :element-type '(unsigned-byte 4) :initial-contents '(1 2 3 4))
+       :size 2)))
   (is-rw-equalp (parametric-type-struct (enum-struct-enum))
     (#(#x01)
       (make-parametric-type-struct :body 'b :size 1)))
