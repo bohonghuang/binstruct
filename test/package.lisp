@@ -597,6 +597,10 @@
   (%end 0 :type position)
   (size 0 :type (map null (constantly (- %end %start)))))
 
+(defbinstruct (derived-parametric-type-struct (:include (parametric-type-struct (inline type)))) (type))
+
+(defbinstruct (u4-array-struct (:include (derived-parametric-type-struct (simple-array (unsigned-byte 4) (*))))) ())
+
 (define-test parametric-type :parent suite
   (is-rw-equalp (parametric-type-struct (unsigned-byte 8))
     (#(#x2A)
@@ -645,7 +649,12 @@
     (#(#xFF #xFF #xFF #x00 #xFF #xFF #xFF #xFF)
       (make-parametric-type-struct
        :body (make-basic-struct :a 255 :b -1 :c 255 :d -1)
-       :size 8))))
+       :size 8)))
+  (is-rw-equalp (u4-array-struct)
+    (#(#x21 #x43)
+      (make-u4-array-struct
+       :body (make-array 4 :element-type '(unsigned-byte 4) :initial-contents '(1 2 3 4))
+       :size 2))))
 
 (defbinstruct nonlocal-pointer-struct-1 ()
   (array (make-array 0 :element-type '(unsigned-byte 8)) :type (pointer (simple-array (unsigned-byte 8) (length)) (unsigned-byte 8) $nonlocal-base))

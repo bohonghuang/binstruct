@@ -73,7 +73,8 @@
                               ((slot-excluded-p) value)
                               ((and (or (not typep) (subtypep type 'structure-object)) (not constructorp))
                                `(setf (,(symbolicate type '- (slot-name)) ,self) ,value))
-                              (t (place-set (place-null) value)))))))
+                              (t (place-set (place-null) value))))))
+             (*inline* nil))
           (mappend #'identity options)
         (delete-from-plistf args :constructor :include :endian :alignment)
         (labels ((slots (&optional (slots (cons (car (ensure-list include)) slots)))
@@ -91,100 +92,80 @@
                  (all-defstruct-slots (remove-if #'slot-excluded-p all-slots))
                  (defstruct-slots (delete-duplicates (delete-if #'slot-excluded-p (copy-list slots)) :key #'car))
                  (ancestor-slots (when include (delete-duplicates (delete-if-not #'slot-name (slots (list (car include)))) :key #'car)))
-                 (bindings (slots-parser-bindings slots)))
-            `(progn
-               (eval-when (:compile-toplevel :load-toplevel :execute)
-                 ,(unless typep
-                    `(defstruct (,name
-                                 (:constructor ,defstruct-constructor)
-                                 ,@(when include `((:include ,(car include))))
-                                 ,@(loop :for (key value) :on args :by #'cddr
-                                         :collect (list key value)))
-                       . ,(loop :for slot :in defstruct-slots
-                                :for (name initform . options) := slot
-                                :collect (list* (getf slot :slot name) initform (nconc (remove-from-plist options :type) (list :type (lisp-type (getf options :type))))))))
-                 (setf (get ',name 'slots) ',(cons (car include) slots)
-                       (get ',name 'lisp-type-expr) (constantly ',type)))
-               (progn
-                 (defparser ,constructor ,(mapcar #'car all-slots)
-                   (constantly
-                    (progn
-                      ,@(set-difference (mapcar #'car all-slots) (mapcar #'car all-defstruct-slots))
-                      (the ,type (,defstruct-constructor
-                                     . ,(loop :for slot :in all-defstruct-slots
-                                              :for (name) := slot
-                                              :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot))))))))
-                 (defparser ,parser (,next ,@(mapcar #'car ancestor-slots) ,@lambda-list)
-                   ,(if (place-used-p *place*)
-                        `(let* ((,self (constantly ',null)) . ,bindings)
-                           (for ((,result (parser-call ,next . ,(mapcar #'car all-slots))))
-                             (setf ,self ,result)))
-                        `(let* ,bindings (parser-call ,next . ,(mapcar #'car all-slots)))))
-                 (defparser ,derive (,next . ,lambda-list)
-                   ,(if include
-                        `(,(let ((*package* (symbol-package (car include))))
-                             (symbolicate (car include) '#:/derive))
-                          ,(if-let ((args (parsonic::lambda-list-arguments lambda-list)))
-                             `(rcurry (curry #',parser ,next) . ,args)
-                             `(curry #',parser ,next))
-                          . ,(cdr include))
-                        `(,parser ,next . ,(parsonic::lambda-list-arguments lambda-list))))
-                 (defparser ,name ,lambda-list
-                   (,derive #',constructor . ,(parsonic::lambda-list-arguments lambda-list))))
-               ,(with-gensyms (output positions)
-                  (let ((*output* output)
-                        (*offset* 0)
-                        (*inline* nil))
-                    `(progn
-                       (defun ,(emitter-name-symbol name) (,output ,self . ,lambda-list)
-                         (declare (ignorable ,output ,self . ,(remove-if #'keywordp (parsonic::lambda-list-arguments lambda-list))))
-                         (let ((,positions *positions*))
-                           ,(when include
-                              `(progn
-                                 ,(let ((*value* self))
-                                    (expand-writer-type include))
-                                 (derive-pointer-positions ,positions)))
-                           ,(let ((*bindings* (loop :with *package* := (symbol-package name)
-                                                    :for slot :in all-slots
-                                                    :for (slot-name slot-initform . slot-options) := slot
-                                                    :when slot-name
-                                                      :if (slot-excluded-p slot)
-                                                        :collect `(,slot-name ,slot-initform) :into excluded
-                                                      :else
-                                                        :collect `(,slot-name (,(symbolicate (or conc-name '#:||) slot-name) ,self)) :into included
-                                                    :finally (return (nconc included (stable-sort excluded #'< :key (compose #'char-code #'first-elt #'symbol-name #'car)))))))
-                              `(let* ,*bindings*
-                                 (declare (ignorable . ,(mapcar #'first *bindings*)))
-                                 ,@(loop :for *slots* :on slots
-                                         :for (slot) := *slots*
-                                         :for (name initform . options) := slot
-                                         :for *value* := (or name initform)
-                                         :collect (expand-writer-type (getf options :type)))
-                                 ,(finish-writer-partial-byte)))
-                           (resolve-pointer-positions ,positions)))
-                       ,(when *inline*
-                          `(eval-when (:compile-toplevel :load-toplevel :execute)
-                             (setf (get ',name 'expand-reader-type-expr)
-                                   (lambda ,lambda-list
-                                     (expand-reader-type-expr-default
-                                      ',name . ,(loop :for arg :in (parsonic::lambda-list-arguments lambda-list)
-                                                      :if (member arg *inline*)
-                                                        :collect `(expand-reader-type ,arg)
-                                                      :else
-                                                        :collect arg)))
-                                   (get ',name 'expand-writer-type-expr)
-                                   (lambda ,lambda-list
-                                     (expand-writer-type-expr-default
-                                      ',name . ,(loop :for arg :in (parsonic::lambda-list-arguments lambda-list)
-                                                      :if (member arg *inline*)
-                                                        :collect (with-gensyms (output value)
-                                                                   `(with-gensyms (,output ,value)
-                                                                      `(lambda (,,output ,,value)
-                                                                         (declare (ignorable ,,output ,,value))
-                                                                         ,(let ((*output* ,output) (*value* ,value))
-                                                                            (expand-writer-type ,arg)))))
-                                                      :else
-                                                        :collect arg))))))))))))))))
+                 (bindings (slots-parser-bindings slots))
+                 (defstruct `(eval-when (:compile-toplevel :load-toplevel :execute)
+                               ,(unless typep
+                                  `(defstruct (,name
+                                               (:constructor ,defstruct-constructor)
+                                               ,@(when include `((:include ,(car include))))
+                                               ,@(loop :for (key value) :on args :by #'cddr
+                                                       :collect (list key value)))
+                                     . ,(loop :for slot :in defstruct-slots
+                                              :for (name initform . options) := slot
+                                              :collect (list* (getf slot :slot name) initform (nconc (remove-from-plist options :type) (list :type (lisp-type (getf options :type))))))))
+                               (setf (get ',name 'slots) ',(cons (car include) slots)
+                                     (get ',name 'lisp-type-expr) (constantly ',type))))
+                 (writer (with-gensyms (output positions)
+                           (let ((*output* output)
+                                 (*offset* 0))
+                             `(progn
+                                (defun ,(emitter-name-symbol name) (,output ,self . ,lambda-list)
+                                  (declare (ignorable ,output ,self . ,(remove-if #'keywordp (parsonic::lambda-list-arguments lambda-list))))
+                                  (let ((,positions *positions*))
+                                    ,(when include
+                                       `(progn
+                                          ,(let ((*value* self))
+                                             (expand-writer-type include))
+                                          (derive-pointer-positions ,positions)))
+                                    ,(let ((*bindings* (loop :with *package* := (symbol-package name)
+                                                             :for slot :in all-slots
+                                                             :for (slot-name slot-initform . slot-options) := slot
+                                                             :when slot-name
+                                                               :if (slot-excluded-p slot)
+                                                                 :collect `(,slot-name ,slot-initform) :into excluded
+                                                               :else
+                                                                 :collect `(,slot-name (,(symbolicate (or conc-name '#:||) slot-name) ,self)) :into included
+                                                             :finally (return (nconc included (stable-sort excluded #'< :key (compose #'char-code #'first-elt #'symbol-name #'car)))))))
+                                       `(let* ,*bindings*
+                                          (declare (ignorable . ,(mapcar #'first *bindings*)))
+                                          ,@(loop :for *slots* :on slots
+                                                  :for (slot) := *slots*
+                                                  :for (name initform . options) := slot
+                                                  :for *value* := (or name initform)
+                                                  :collect (expand-writer-type (getf options :type)))
+                                          ,(finish-writer-partial-byte)))
+                                    (resolve-pointer-positions ,positions)))
+                                (eval-when (:compile-toplevel :load-toplevel :execute)
+                                  (setf (get ',name 'args) ',(loop :for arg :in (parsonic::lambda-list-arguments lambda-list)
+                                                                   :collect (cons arg (not (null (member arg *inline*)))))))))))
+                 (reader `(progn
+                            (defparser ,constructor ,(mapcar #'car all-slots)
+                              (constantly
+                               (progn
+                                 ,@(set-difference (mapcar #'car all-slots) (mapcar #'car all-defstruct-slots))
+                                 (the ,type (,defstruct-constructor
+                                                . ,(loop :for slot :in all-defstruct-slots
+                                                         :for (name) := slot
+                                                         :nconc (list (make-keyword (getf slot :slot (car slot))) (car slot))))))))
+                            (defparser ,parser (,next ,@(mapcar #'car ancestor-slots) ,@lambda-list)
+                              ,(if (place-used-p *place*)
+                                   `(let* ((,self (constantly ',null)) . ,bindings)
+                                      (for ((,result (parser-call ,next . ,(mapcar #'car all-slots))))
+                                        (setf ,self ,result)))
+                                   `(let* ,bindings (parser-call ,next . ,(mapcar #'car all-slots)))))
+                            (defparser ,derive (,next . ,lambda-list)
+                              ,(if include
+                                   (let ((include (apply #'expand-reader-type-expr-default include)))
+                                     `(,(let ((*package* (symbol-package (car include))))
+                                          (symbolicate (car include) '#:/derive))
+                                       ,(if-let ((args (parsonic::lambda-list-arguments lambda-list)))
+                                          `(rcurry (curry #',parser ,next) . ,args)
+                                          `(curry #',parser ,next))
+                                       . ,(cdr include)))
+                                   `(,parser ,next . ,(parsonic::lambda-list-arguments lambda-list))))
+                            (defparser ,name ,lambda-list
+                              (,derive #',constructor . ,(parsonic::lambda-list-arguments lambda-list))))))
+            `(progn ,defstruct ,reader ,writer)))))))
 
 (define-condition deserialize-error (parse-error)
   ((input :initarg :input :reader deserialize-error-input)

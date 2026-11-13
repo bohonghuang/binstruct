@@ -12,7 +12,13 @@
 
 (defun expand-reader-type-expr-default (name &rest args)
   (finish-reader-partial-byte)
-  (cons name args))
+  (cons name (loop :with arg-info := (get name 'args)
+                   :for arg :in args
+                   :for index :from 0
+                   :if (cdr (nth index arg-info))
+                     :collect (expand-reader-type-unit arg)
+                   :else
+                     :collect arg)))
 
 (defgeneric expand-reader-type-expr (name &rest args)
   (:method (name &rest args) (apply #'expand-reader-type-expr-default name args)))

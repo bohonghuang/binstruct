@@ -77,7 +77,18 @@
 (defun expand-writer-type-expr-default (name &rest args)
   `(progn
      ,(finish-writer-partial-byte)
-     (,(emitter-name-symbol name) ,*output* ,*value* . ,args)))
+     (,(emitter-name-symbol name) ,*output* ,*value*
+      . ,(loop :with arg-info := (get name 'args)
+               :for arg :in args
+               :for index :from 0
+               :if (cdr (nth index arg-info))
+                 :collect (with-gensyms (output value)
+                            `(lambda (,output ,value)
+                               (declare (ignorable ,output ,value))
+                               ,(let ((*output* output) (*value* value))
+                                  (expand-writer-type-unit arg))))
+               :else
+                 :collect arg))))
 
 (defgeneric expand-writer-type-expr (name &rest args)
   (:method (name &rest args) (apply #'expand-writer-type-expr-default name args)))
